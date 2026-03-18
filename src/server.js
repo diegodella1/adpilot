@@ -4,6 +4,7 @@ const path = require('path');
 const config = require('./config');
 const chatRoutes = require('./routes/chat');
 const adminRoutes = require('./routes/admin');
+const knowledgeRoutes = require('./routes/knowledge');
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/api', (req, res, next) => {
 // API routes
 app.use('/api', chatRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/knowledge', knowledgeRoutes);
 
 // Static frontend
 app.use(express.static(path.join(__dirname, '..', 'public')));

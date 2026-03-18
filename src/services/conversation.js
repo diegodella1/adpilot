@@ -1,5 +1,6 @@
 const supabase = require('../db/supabase');
 const llm = require('./llm');
+const knowledge = require('./knowledge');
 
 const VALID_STATES = ['intake', 'clarifying', 'reviewing', 'confirmed', 'executing', 'done', 'error'];
 
@@ -66,9 +67,18 @@ async function processMessage(conversationId, userMessage) {
   // Agregar mensaje del usuario al historial
   const messages = [...conv.messages, { role: 'user', content: userMessage }];
 
-  // Llamar al LLM con el historial completo
+  // Buscar contexto relevante en la base de conocimiento (RAG)
+  let ragContext = [];
+  try {
+    ragContext = await knowledge.search(userMessage, { count: 3 });
+  } catch (e) {
+    // RAG es opcional, no bloqueamos si falla
+    console.warn('RAG search failed:', e.message);
+  }
+
+  // Llamar al LLM con el historial completo + contexto RAG
   const llmMessages = messages.map(m => ({ role: m.role, content: m.content }));
-  const assistantResponse = await llm.chat(llmMessages);
+  const assistantResponse = await llm.chat(llmMessages, { ragContext });
 
   // Detectar transición de estado
   const newState = llm.detectStateTransition(assistantResponse, conv.state);

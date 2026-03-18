@@ -1,6 +1,7 @@
 const supabase = require('../db/supabase');
 const googleAds = require('./google-ads');
 const conversation = require('./conversation');
+const knowledge = require('./knowledge');
 
 /**
  * Valida el draft de campaña antes de ejecutar
@@ -92,6 +93,11 @@ async function execute(conversationId) {
       status: result.errors.length > 0 ? 'partial' : 'success',
       payload: { result },
     });
+
+    // Auto-learn: guardar en knowledge base
+    knowledge.learnFromConversation(conv).catch(e =>
+      console.warn('Auto-learn failed:', e.message)
+    );
 
     return {
       success: true,

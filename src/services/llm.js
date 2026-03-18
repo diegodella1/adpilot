@@ -150,14 +150,23 @@ function extractCampaignJson(message) {
 /**
  * Chat con el LLM incluyendo historial de conversación.
  * Levanta provider/model/key desde la DB (con cache).
+ * Inyecta contexto RAG relevante al system prompt.
  */
-async function chat(messages) {
+async function chat(messages, { ragContext = null } = {}) {
   const settings = await getSettings();
   const { client, model } = getLLMClient(settings);
 
+  let systemContent = SYSTEM_PROMPT;
+  if (ragContext?.length) {
+    const contextBlock = ragContext
+      .map(k => `[${k.category}] ${k.title}: ${k.content}`)
+      .join('\n---\n');
+    systemContent += `\n\n## Contexto de campañas anteriores y aprendizajes\nUsá esta información para mejorar tus recomendaciones:\n\n${contextBlock}`;
+  }
+
   const response = await client.chat.completions.create({
     model,
-    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+    messages: [{ role: 'system', content: systemContent }, ...messages],
     temperature: 0.3,
     max_tokens: 2000,
   });

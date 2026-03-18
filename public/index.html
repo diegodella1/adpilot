@@ -12,6 +12,7 @@
     <div class="header-actions">
       <button id="btn-chat" class="active" onclick="showView('chat')">Chat</button>
       <button id="btn-logs" onclick="showView('logs')">Logs</button>
+      <button id="btn-knowledge" onclick="showView('knowledge')">Knowledge</button>
       <button id="btn-admin" onclick="showView('admin')">Admin</button>
     </div>
   </header>
@@ -49,6 +50,36 @@
     <div class="logs-panel" id="view-logs">
       <h2 style="margin-bottom:16px;font-size:18px">Logs de campañas</h2>
       <div id="logs-content"></div>
+    </div>
+
+    <!-- Knowledge view -->
+    <div class="admin-panel" id="view-knowledge">
+      <div class="admin-section">
+        <h3>Agregar conocimiento</h3>
+        <div class="admin-field">
+          <label>Categoría</label>
+          <select id="k-category">
+            <option value="best_practice">Best Practice</option>
+            <option value="user_feedback">Feedback / Preferencia</option>
+            <option value="optimization">Tip de Optimización</option>
+            <option value="campaign_result">Resultado de Campaña</option>
+          </select>
+        </div>
+        <div class="admin-field">
+          <label>Título</label>
+          <input type="text" id="k-title" placeholder="Ej: Usar EXACT match para keywords de alta intención">
+        </div>
+        <div class="admin-field">
+          <label>Contenido</label>
+          <textarea id="k-content" rows="4" placeholder="Detalle del conocimiento..."
+            style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+        <button class="admin-save" onclick="addKnowledge()">Agregar</button>
+      </div>
+      <div class="admin-section">
+        <h3>Base de conocimiento</h3>
+        <div id="knowledge-list"></div>
+      </div>
     </div>
 
     <!-- Admin view -->
