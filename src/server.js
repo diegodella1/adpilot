@@ -5,6 +5,10 @@ const config = require('./config');
 const chatRoutes = require('./routes/chat');
 const adminRoutes = require('./routes/admin');
 const knowledgeRoutes = require('./routes/knowledge');
+const dashboardRoutes = require('./routes/dashboard');
+const optimizerRoutes = require('./routes/optimizer');
+const analysisChatRoutes = require('./routes/analysis-chat');
+const metrics = require('./services/metrics');
 
 const app = express();
 
@@ -24,6 +28,9 @@ app.use('/api', (req, res, next) => {
 app.use('/api', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/optimizer', optimizerRoutes);
+app.use('/api/analysis', analysisChatRoutes);
 
 // Static frontend
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -35,4 +42,6 @@ app.get('*', (req, res) => {
 
 app.listen(config.port, () => {
   console.log(`AdPilot running on port ${config.port}`);
+  // Sync de métricas cada hora (si Google Ads está configurado)
+  metrics.startPeriodicSync(3600_000);
 });

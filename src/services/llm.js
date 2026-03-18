@@ -173,9 +173,25 @@ async function chat(messages, { ragContext = null } = {}) {
   return response.choices[0].message.content;
 }
 
+/**
+ * Chat genérico con system prompt custom (para analysis chat, etc.)
+ */
+async function chatWithSystem(systemPrompt, messages) {
+  const settings = await getSettings();
+  const { client, model } = getLLMClient(settings);
+
+  const response = await client.chat.completions.create({
+    model,
+    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    temperature: 0.3,
+    max_tokens: 2000,
+  });
+  return response.choices[0].message.content;
+}
+
 /** Invalida cache de settings (llamar después de update) */
 function invalidateCache() {
   settingsCache = null;
 }
 
-module.exports = { chat, detectStateTransition, detectUserConfirmation, extractCampaignJson, invalidateCache };
+module.exports = { chat, chatWithSystem, detectStateTransition, detectUserConfirmation, extractCampaignJson, invalidateCache };

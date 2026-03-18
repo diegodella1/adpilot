@@ -1,4 +1,4 @@
-# AdPilot — MVP
+# AdPilot — Estado
 
 ## Fase 1: Setup y conexión a Google Ads
 - [ ] Crear proyecto en Google Cloud + OAuth2
@@ -6,36 +6,47 @@
 - [ ] Implementar auth flow (obtener refresh token)
 - [ ] Test: listar campañas existentes
 
-## Fase 2: Backend base
+## Fase 2: Backend base (MVP)
 - [x] Scaffold Node.js app (Express)
-- [x] Modelo de datos en Supabase (conversations, drafts, logs, settings)
-- [x] LLM service con system prompt de Google Ads (multi-provider: OpenAI/OpenRouter)
+- [x] Modelo de datos en Supabase
+- [x] LLM service multi-provider (OpenAI/OpenRouter)
 - [x] State machine de conversación
-- [x] Endpoint de chat (POST /api/chat)
-- [x] Admin panel para configurar LLM provider/model/keys
-- [x] Logs de ejecuciones
+- [x] Chat API + Admin API + Knowledge API
+- [x] Campaign builder + validación + ejecución
+- [x] RAG con pgvector (auto-learn + manual)
 
-## Fase 3: Campaign builder
-- [x] Parser de output LLM → estructura de campaña
-- [x] Validación de estructura
-- [x] Funciones de creación via Google Ads API
-- [x] Logging de ejecuciones
+## Fase 3: Dashboard + métricas
+- [x] Sync de métricas Google Ads → Supabase (cron cada hora)
+- [x] API: summaries, daily metrics, global metrics
+- [x] Frontend: KPI cards, chart (Chart.js), tabla de campañas
+- [x] Alertas automáticas (CPA spike, CTR drop, sin conversiones, ROAS bajo)
 
-## Fase 4: Frontend
-- [x] Chat UI básica (HTML/CSS/JS)
-- [x] Preview de campaña en formato legible
-- [x] Botones de acción (aprobar/editar/cancelar)
-- [x] Feedback visual de estado
-- [x] Admin panel (LLM config)
-- [x] Logs viewer
+## Fase 4: Chat de análisis de campañas
+- [x] Endpoint /api/analysis/chat con métricas inyectadas al system prompt
+- [x] RAG de conocimiento de optimización
+- [x] Detección de acciones en respuesta del LLM (```action JSON```)
+- [x] Ejecutar acciones directamente desde el chat
+- [x] Frontend: vista Analizar con botones de ejecutar/ignorar acción
 
-## Fase 5: Deploy
+## Fase 5: Motor de optimización automática
+- [x] CRUD de reglas (condición + acción)
+- [x] Evaluación de reglas contra summaries
+- [x] Ejecución manual o automática
+- [x] Recomendaciones pendientes con aprobar/rechazar
+- [x] Logging de optimizaciones
+- [x] Frontend: vista Reglas con formulario + lista + recomendaciones
+
+## Fase 6: Frontend completo
+- [x] 7 tabs: Chat, Dashboard, Analizar, Reglas, Logs, Knowledge, Admin
+- [x] Chart.js para gráficos de spend/conversiones
+- [x] Sidebar de conversaciones (en modo Chat)
+- [x] Responsive con grid layout
+
+## Fase 7: Deploy
 - [x] Dockerfile
 - [ ] Deploy en Coolify
-- [ ] Test end-to-end
+- [ ] Test end-to-end con Google Ads real
 
-## Pendiente (post-MVP)
-- [ ] Dashboard de métricas + alertas
-- [ ] Logs de modificaciones en dashboard
-- [ ] Chat con LLM para preguntar sobre campañas y dar órdenes de optimización
-- [ ] Motor de optimización automática
+## Pendiente
+- [ ] Configurar Google Ads API credentials (manual)
+- [ ] Configurar LLM API key (desde Admin)
