@@ -190,6 +190,28 @@ async function executeOptimization(logId, userId = null) {
         }
         break;
 
+      case 'pause_keyword':
+        if (action.params?.keyword_id && action.params?.ad_group_id) {
+          await cust.adGroupCriteria.update([{
+            resource_name: `customers/${custId}/adGroupCriteria/${action.params.ad_group_id}~${action.params.keyword_id}`,
+            status: 'PAUSED',
+          }]);
+        } else {
+          throw new Error('pause_keyword requires keyword_id and ad_group_id in action params');
+        }
+        break;
+
+      case 'enable_keyword':
+        if (action.params?.keyword_id && action.params?.ad_group_id) {
+          await cust.adGroupCriteria.update([{
+            resource_name: `customers/${custId}/adGroupCriteria/${action.params.ad_group_id}~${action.params.keyword_id}`,
+            status: 'ENABLED',
+          }]);
+        } else {
+          throw new Error('enable_keyword requires keyword_id and ad_group_id in action params');
+        }
+        break;
+
       case 'alert':
         break;
 

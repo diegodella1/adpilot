@@ -10,6 +10,9 @@ const SAFE_ERRORS = [
   'Empty message',
   'Google Ads credentials not configured',
   'Too many LLM requests',
+  'No hay API key de LLM configurada',
+  'Unknown action type',
+  'requires keyword_id and ad_group_id',
 ];
 
 function safeError(err) {

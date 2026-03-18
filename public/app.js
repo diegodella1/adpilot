@@ -1201,12 +1201,61 @@ function renderDocs() {
         </div>
 
         <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Analizar - Chat de analisis</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Selecciona una campana y el LLM analiza su rendimiento (CPA, CTR, ROAS, tendencias).
+            Puede sugerir acciones concretas (pausar campana, ajustar budget) que se ejecutan con un click.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Reglas - Motor de optimizacion</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Define reglas automaticas tipo "si CPA 7d > $10, pausar campana". Pueden auto-ejecutarse o quedar pendientes de aprobacion.
+            Se evaluan manualmente con el boton <strong>Evaluar reglas</strong> despues de sincronizar metricas.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Keywords - Planificador</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Genera ideas de keywords usando el Keyword Planner de Google Ads. Ingresa palabras clave semilla o una URL
+            y obtene volumen de busquedas, competencia y CPC estimado.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Knowledge - Base de conocimiento</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Base vectorial (RAG) que alimenta al LLM con contexto de campanas pasadas y optimizaciones.
+            Se auto-alimenta cuando se crean o optimizan campanas. Tambien podes agregar entries manuales.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
           <h4 style="margin-bottom:6px">Admin</h4>
           <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
             <strong>Mi cuenta:</strong> Credenciales de Google Ads y detalles del negocio (se inyectan al LLM).<br>
             <strong>Plataforma (admin):</strong> LLM provider, master prompt global, gestion de usuarios y consumo.
           </p>
         </div>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-top:16px">
+        <h3 style="margin-bottom:8px;color:var(--accent)">Credenciales necesarias</h3>
+        <table style="width:100%;font-size:13px;color:var(--text-dim);border-collapse:collapse">
+          <tr style="text-align:left;border-bottom:1px solid var(--border)">
+            <th style="padding:6px 0">Servicio</th><th style="padding:6px 0">Donde</th><th style="padding:6px 0">Obligatorio</th>
+          </tr>
+          <tr><td style="padding:4px 0">OpenAI API Key</td><td>Admin > Plataforma</td><td>Si</td></tr>
+          <tr><td style="padding:4px 0">Google Ads Client ID</td><td>Admin > Mi cuenta</td><td>Para ejecutar campanas</td></tr>
+          <tr><td style="padding:4px 0">Google Ads Developer Token</td><td>Admin > Mi cuenta</td><td>Para ejecutar campanas</td></tr>
+          <tr><td style="padding:4px 0">Google Ads Refresh Token</td><td>Admin > Mi cuenta</td><td>Para ejecutar campanas</td></tr>
+          <tr><td style="padding:4px 0">Google Ads Customer ID</td><td>Admin > Mi cuenta</td><td>Para ejecutar campanas</td></tr>
+        </table>
+        <p style="color:var(--text-dim);font-size:12px;margin-top:8px">
+          Sin Google Ads, AdPilot funciona como copiloto: genera estructuras de campana que podes crear manualmente en Google Ads.
+        </p>
       </div>
 
       <div style="margin-top:24px;padding:16px;border-top:1px solid var(--border);color:var(--text-dim);font-size:12px">

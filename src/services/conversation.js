@@ -54,6 +54,13 @@ async function list(userId, limit = 20) {
  */
 async function processMessage(conversationId, userMessage, userId) {
   return withLock(conversationId, async () => {
+    // Verificar que hay LLM configurado antes de intentar chatear
+    const settings = await llm.getSettings(userId);
+    const hasLlmKey = !!(settings.llm_api_key || require('../config').openaiKey);
+    if (!hasLlmKey) {
+      throw new Error('No hay API key de LLM configurada. Andá a Admin > Plataforma para configurar OpenAI o OpenRouter.');
+    }
+
     const conv = await get(conversationId, userId);
     if (!conv) throw new Error('Conversation not found');
 

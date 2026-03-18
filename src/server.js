@@ -50,9 +50,39 @@ const llmLimiter = rateLimit({
   message: { error: 'Too many LLM requests. Wait a moment.' },
 });
 
-// Health check (no auth)
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
+// Health check (no auth) — verifica conexiones a Supabase, OpenAI y Google Ads
+app.get('/health', async (req, res) => {
+  const checks = { supabase: false, openai: false, google_ads: false };
+
+  // Supabase
+  try {
+    const supabase = require('./db/supabase');
+    const { error } = await supabase.from('adpilot_users').select('id').limit(1);
+    checks.supabase = !error;
+  } catch (e) { checks.supabase = false; }
+
+  // OpenAI / LLM key
+  try {
+    const { data: rows } = await require('./db/supabase')
+      .from('adpilot_settings').select('key, value').is('user_id', null);
+    const settings = {};
+    for (const r of rows || []) settings[r.key] = r.value;
+    const hasKey = !!(settings.llm_api_key || config.openaiKey);
+    checks.openai = hasKey;
+  } catch (e) { checks.openai = !!config.openaiKey; }
+
+  // Google Ads
+  try {
+    const hasGads = !!(config.googleAds.clientId && config.googleAds.developerToken);
+    checks.google_ads = hasGads;
+  } catch (e) { checks.google_ads = false; }
+
+  const allOk = checks.supabase && checks.openai;
+  res.status(allOk ? 200 : 503).json({
+    status: allOk ? 'ok' : 'degraded',
+    uptime: Math.floor(process.uptime()),
+    checks,
+  });
 });
 
 // Auth routes — ANTES del auth middleware (login/setup son públicos)
