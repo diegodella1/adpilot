@@ -270,7 +270,14 @@ function startPeriodicSync(intervalMs = 3600_000) {
   setTimeout(() => syncFromGoogleAds(), 10_000);
 }
 
+function stopPeriodicSync() {
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
+  }
+}
+
 module.exports = {
   syncFromGoogleAds, getSummaries, getDailyMetrics, getGlobalMetrics,
-  startPeriodicSync, updateSummaries, generateAlerts,
+  startPeriodicSync, stopPeriodicSync, updateSummaries, generateAlerts,
 };

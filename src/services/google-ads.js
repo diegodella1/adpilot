@@ -1,30 +1,71 @@
 const { GoogleAdsApi } = require('google-ads-api');
 const config = require('../config');
+const supabase = require('../db/supabase');
 
 let client = null;
 let customer = null;
+let credsCacheTime = 0;
 
-function getClient() {
-  if (!client) {
-    client = new GoogleAdsApi({
-      client_id: config.googleAds.clientId,
-      client_secret: config.googleAds.clientSecret,
-      developer_token: config.googleAds.developerToken,
-    });
-    customer = client.Customer({
-      customer_id: config.googleAds.customerId,
-      login_customer_id: config.googleAds.loginCustomerId,
-      refresh_token: config.googleAds.refreshToken,
-    });
+/**
+ * Obtiene credenciales de Google Ads: primero de la DB, fallback al .env
+ */
+async function getGadsCreds() {
+  // Cache por 5 minutos
+  if (customer && Date.now() - credsCacheTime < 300_000) return;
+
+  let creds = { ...config.googleAds };
+
+  // Intentar leer de la DB
+  try {
+    const { data } = await supabase.from('adpilot_settings').select('key, value');
+    const db = {};
+    for (const row of data || []) db[row.key] = row.value;
+
+    // DB overrides .env si tiene valor
+    if (db.gads_client_id) creds.clientId = db.gads_client_id;
+    if (db.gads_client_secret) creds.clientSecret = db.gads_client_secret;
+    if (db.gads_dev_token) creds.developerToken = db.gads_dev_token;
+    if (db.gads_refresh_token) creds.refreshToken = db.gads_refresh_token;
+    if (db.gads_customer_id) creds.customerId = db.gads_customer_id;
+    if (db.gads_login_customer_id) creds.loginCustomerId = db.gads_login_customer_id;
+  } catch (e) {
+    // Fallback a .env silenciosamente
   }
+
+  if (!creds.clientId || !creds.developerToken || !creds.refreshToken) {
+    throw new Error('Google Ads credentials not configured');
+  }
+
+  client = new GoogleAdsApi({
+    client_id: creds.clientId,
+    client_secret: creds.clientSecret,
+    developer_token: creds.developerToken,
+  });
+  customer = client.Customer({
+    customer_id: creds.customerId,
+    login_customer_id: creds.loginCustomerId,
+    refresh_token: creds.refreshToken,
+  });
+  credsCacheTime = Date.now();
+}
+
+async function getClient() {
+  await getGadsCreds();
   return customer;
+}
+
+/** Invalida cache (llamar después de cambiar settings) */
+function invalidateClient() {
+  client = null;
+  customer = null;
+  credsCacheTime = 0;
 }
 
 /**
  * Test de conexión: lista campañas existentes
  */
 async function listCampaigns() {
-  const cust = getClient();
+  const cust = await getClient();
   const campaigns = await cust.query(`
     SELECT campaign.id, campaign.name, campaign.status,
            campaign_budget.amount_micros
@@ -45,7 +86,7 @@ async function listCampaigns() {
  * Crea una campaña completa a partir del draft JSON del LLM
  */
 async function createCampaignFromDraft(draft) {
-  const cust = getClient();
+  const cust = await getClient();
   const results = { campaignId: null, adGroupIds: [], errors: [] };
 
   try {
@@ -177,21 +218,52 @@ async function createCampaignFromDraft(draft) {
   return results;
 }
 
-// Geo ID lookup (principales)
+/**
+ * Elimina una campaña (para rollback)
+ */
+async function removeCampaign(campaignId) {
+  const cust = await getClient();
+  const cfg = require('../config').googleAds;
+  await cust.campaigns.update([{
+    resource_name: `customers/${cfg.customerId}/campaigns/${campaignId}`,
+    status: 'REMOVED',
+  }]);
+}
+
+// Geo ID lookup — expandido
 function getGeoId(code) {
   const map = {
     AR: 2032, US: 2840, BR: 2076, MX: 2484, ES: 2724,
     CL: 2152, CO: 2170, PE: 2604, UY: 2858, GB: 2826,
+    CA: 2124, DE: 2276, FR: 2250, IT: 2380, AU: 2036,
+    NZ: 2554, JP: 2392, IN: 2356, ZA: 2710, PY: 2600,
+    BO: 2068, EC: 2218, VE: 2862, CR: 2188, PA: 2591,
+    GT: 2320, DO: 2214, HN: 2340, SV: 2222, NI: 2558,
+    CU: 2192, PR: 2630, PT: 2620, IE: 2372, NL: 2528,
+    BE: 2056, CH: 2756, AT: 2040, SE: 2752, NO: 2578,
+    DK: 2208, FI: 2246, PL: 2616, CZ: 2203, RO: 2642,
+    HU: 2348, GR: 2300, TR: 2792, IL: 2376, AE: 2784,
+    SA: 2682, EG: 2818, KR: 2410, TW: 2158, SG: 2702,
+    MY: 2458, TH: 2764, PH: 2608, ID: 2360, VN: 2704,
+    CN: 2156, RU: 2643, UA: 2804, KE: 2404, NG: 2566,
   };
-  return map[code.toUpperCase()] || 2032;
+  const id = map[code.toUpperCase()];
+  if (!id) throw new Error(`Geo code "${code}" not supported`);
+  return id;
 }
 
-// Language ID lookup
+// Language ID lookup — expandido
 function getLangId(code) {
   const map = {
     es: 1003, en: 1000, pt: 1014, fr: 1002, de: 1001, it: 1004,
+    ja: 1005, ko: 1012, zh: 1017, nl: 1010, ru: 1031, ar: 1019,
+    hi: 1023, pl: 1030, tr: 1037, sv: 1015, da: 1009, no: 1013,
+    fi: 1011, cs: 1021, hu: 1024, ro: 1032, el: 1022, he: 1027,
+    th: 1044, vi: 1040, id: 1025, ms: 1102, tl: 1042,
   };
-  return map[code.toLowerCase()] || 1003;
+  const id = map[code.toLowerCase()];
+  if (!id) throw new Error(`Language code "${code}" not supported`);
+  return id;
 }
 
-module.exports = { listCampaigns, createCampaignFromDraft };
+module.exports = { listCampaigns, createCampaignFromDraft, removeCampaign, invalidateClient };

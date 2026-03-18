@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const knowledge = require('../services/knowledge');
+const { errorResponse } = require('../services/errors');
 
 const router = Router();
 
@@ -14,7 +15,7 @@ router.get('/search', async (req, res) => {
     });
     res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -28,7 +29,7 @@ router.get('/', async (req, res) => {
     });
     res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -42,7 +43,7 @@ router.post('/', async (req, res) => {
     const result = await knowledge.add({ category, title, content, metadata });
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -52,7 +53,7 @@ router.delete('/:id', async (req, res) => {
     await knowledge.remove(req.params.id);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 

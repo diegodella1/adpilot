@@ -3,6 +3,7 @@ const supabase = require('../db/supabase');
 const llm = require('../services/llm');
 const metrics = require('../services/metrics');
 const knowledge = require('../services/knowledge');
+const { errorResponse } = require('../services/errors');
 
 const router = Router();
 
@@ -151,7 +152,7 @@ router.post('/chat', async (req, res) => {
       action,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -178,7 +179,7 @@ router.post('/execute-action', async (req, res) => {
     const result = await optimizer.executeOptimization(log.id);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 

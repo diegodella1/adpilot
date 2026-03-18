@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const optimizer = require('../services/optimizer');
+const { errorResponse } = require('../services/errors');
 
 const router = Router();
 
@@ -8,7 +9,7 @@ const router = Router();
 router.get('/rules', async (req, res) => {
   try {
     res.json(await optimizer.listRules());
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errorResponse(res, err); }
 });
 
 router.post('/rules', async (req, res) => {
@@ -22,21 +23,21 @@ router.post('/rules', async (req, res) => {
       auto_execute: auto_execute || false,
     });
     res.json(rule);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errorResponse(res, err); }
 });
 
 router.put('/rules/:id', async (req, res) => {
   try {
     await optimizer.updateRule(req.params.id, req.body);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errorResponse(res, err); }
 });
 
 router.delete('/rules/:id', async (req, res) => {
   try {
     await optimizer.deleteRule(req.params.id);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errorResponse(res, err); }
 });
 
 // --- Evaluación y recomendaciones ---
@@ -46,14 +47,14 @@ router.post('/evaluate', async (req, res) => {
   try {
     const triggered = await optimizer.evaluateRules();
     res.json({ triggered: triggered.length, results: triggered });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errorResponse(res, err); }
 });
 
 // Listar recomendaciones pendientes
 router.get('/recommendations', async (req, res) => {
   try {
     res.json(await optimizer.getPendingRecommendations());
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errorResponse(res, err); }
 });
 
 // Aprobar/rechazar recomendación
@@ -62,7 +63,7 @@ router.post('/recommendations/:id/resolve', async (req, res) => {
     const { approved } = req.body;
     const result = await optimizer.resolveRecommendation(req.params.id, approved);
     res.json(result);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errorResponse(res, err); }
 });
 
 // Análisis LLM de una campaña
@@ -70,7 +71,7 @@ router.get('/analysis/:campaignId', async (req, res) => {
   try {
     const prompt = await optimizer.llmAnalysis(req.params.campaignId);
     res.json(prompt);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { errorResponse(res, err); }
 });
 
 module.exports = router;

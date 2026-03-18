@@ -1,6 +1,8 @@
 const { Router } = require('express');
 const supabase = require('../db/supabase');
 const { invalidateCache } = require('../services/llm');
+const { invalidateClient } = require('../services/google-ads');
+const { errorResponse } = require('../services/errors');
 
 const router = Router();
 
@@ -19,7 +21,7 @@ router.get('/settings', async (req, res) => {
     }
     res.json(settings);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -38,9 +40,10 @@ router.put('/settings', async (req, res) => {
     }
 
     invalidateCache();
+    invalidateClient();
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -56,7 +59,7 @@ router.get('/logs', async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 

@@ -19,7 +19,7 @@ if (!TOKEN) {
 }
 
 // Views
-const ALL_VIEWS = ['chat', 'dashboard', 'analyze', 'optimizer', 'logs', 'knowledge', 'admin'];
+const ALL_VIEWS = ['chat', 'dashboard', 'analyze', 'optimizer', 'logs', 'knowledge', 'admin', 'docs'];
 
 function showView(view) {
   document.querySelectorAll('.header-actions button').forEach(b => b.classList.remove('active'));
@@ -36,6 +36,7 @@ function showView(view) {
   if (view === 'admin') loadSettings();
   if (view === 'dashboard') loadDashboard();
   if (view === 'optimizer') loadOptimizer();
+  if (view === 'docs') renderDocs();
 }
 
 // ===================== CONVERSATIONS =====================
@@ -106,7 +107,23 @@ function addMessage(role, content, containerId = 'messages') {
 async function send() {
   const input = document.getElementById('input');
   const msg = input.value.trim();
-  if (!msg || sending || !currentConvId) return;
+  if (!msg || sending) return;
+
+  // Auto-crear conversación si no hay ninguna seleccionada
+  if (!currentConvId) {
+    try {
+      const res = await fetch(`${API}/api/conversations`, { method: 'POST', headers: headers() });
+      const conv = await res.json();
+      currentConvId = conv.id;
+      renderMessages([]);
+      updateState('intake');
+      loadConversations();
+    } catch (e) {
+      addMessage('system', 'Error creando conversación: ' + e.message);
+      return;
+    }
+  }
+
   input.value = '';
   input.style.height = 'auto';
   await sendMessage(msg);
@@ -665,6 +682,13 @@ async function loadSettings() {
     document.getElementById('s-llm-model').value = s.llm_model || 'gpt-4o-mini';
     document.getElementById('s-openrouter-api-key').value = s.openrouter_api_key || '';
     document.getElementById('s-openrouter-model').value = s.openrouter_model || 'openai/gpt-4o-mini';
+    // Google Ads
+    document.getElementById('s-gads-client-id').value = s.gads_client_id || '';
+    document.getElementById('s-gads-client-secret').value = s.gads_client_secret || '';
+    document.getElementById('s-gads-dev-token').value = s.gads_dev_token || '';
+    document.getElementById('s-gads-refresh-token').value = s.gads_refresh_token || '';
+    document.getElementById('s-gads-customer-id').value = s.gads_customer_id || '';
+    document.getElementById('s-gads-login-customer-id').value = s.gads_login_customer_id || '';
   } catch (e) { console.error(e); }
 }
 
@@ -685,6 +709,160 @@ async function saveSettings() {
     if (data.ok) alert('Settings guardados');
     else alert('Error: ' + (data.error || 'unknown'));
   } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function saveGoogleAds() {
+  try {
+    const settings = {
+      gads_client_id: document.getElementById('s-gads-client-id').value,
+      gads_client_secret: document.getElementById('s-gads-client-secret').value,
+      gads_dev_token: document.getElementById('s-gads-dev-token').value,
+      gads_refresh_token: document.getElementById('s-gads-refresh-token').value,
+      gads_customer_id: document.getElementById('s-gads-customer-id').value,
+      gads_login_customer_id: document.getElementById('s-gads-login-customer-id').value,
+    };
+    const res = await fetch(`${API}/api/admin/settings`, {
+      method: 'PUT', headers: headers(),
+      body: JSON.stringify(settings),
+    });
+    const data = await res.json();
+    if (data.ok) alert('Google Ads settings guardados. Reiniciá el server para aplicar.');
+    else alert('Error: ' + (data.error || 'unknown'));
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+// ===================== DOCS =====================
+
+function renderDocs() {
+  document.getElementById('docs-content').innerHTML = `
+    <div class="admin-section" style="max-width:800px">
+      <h2 style="font-size:22px;margin-bottom:4px">AdPilot</h2>
+      <p style="color:var(--text-dim);margin-bottom:20px">Agente conversacional para Google Ads. Crea, analiza y optimiza campanas con LLM.</p>
+
+      <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-bottom:20px">
+        <h3 style="margin-bottom:8px;color:var(--accent)">Setup inicial</h3>
+        <ol style="padding-left:20px;line-height:1.8;color:var(--text-dim)">
+          <li>Ir a <strong>Admin</strong> y configurar un LLM provider (OpenAI directo u OpenRouter) con su API key y modelo.</li>
+          <li>Para crear campanas reales en Google Ads, configurar las credenciales en la seccion <strong>Google Ads API</strong> del Admin:
+            <ul style="margin-top:4px;padding-left:16px">
+              <li>Crear proyecto en <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">Google Cloud Console</a></li>
+              <li>Habilitar la Google Ads API</li>
+              <li>Crear credenciales OAuth2 (tipo Desktop App)</li>
+              <li>Obtener el Developer Token desde la cuenta de Google Ads (Herramientas > Centro de API)</li>
+              <li>Generar un Refresh Token corriendo el flujo OAuth2</li>
+              <li>Poner el Customer ID de tu cuenta (sin guiones)</li>
+            </ul>
+          </li>
+          <li>Sin Google Ads configurado, AdPilot igual funciona como copiloto: genera estructuras de campana que podes crear manualmente.</li>
+        </ol>
+      </div>
+
+      <h3 style="color:var(--accent);margin-bottom:12px">Secciones</h3>
+
+      <div style="display:grid;gap:12px">
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Chat — Crear campanas</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Describis lo que necesitas en lenguaje natural: <em>"Quiero una campana de Search para mi SaaS, objetivo leads a $5 CPA, budget $50/dia"</em>.
+            El agente te pregunta lo que falta (keywords, landing page, geo, idioma), genera la estructura completa de campana en JSON,
+            y te la muestra para que revises. Podes pedir cambios cuantas veces quieras. Cuando estas conforme, apretas
+            <strong>Aprobar y ejecutar</strong> y se crea la campana en Google Ads (pausada, para que la revises antes de activar).
+          </p>
+          <p style="color:var(--text-dim);font-size:13px;margin-top:8px">
+            <strong>Estados:</strong> Intake (descripcion inicial) → Clarificacion (preguntas) → Revision (estructura generada) → Confirmado → Ejecutando → Listo.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Dashboard — Metricas</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Muestra KPIs globales (spend, clicks, conversiones, CPA, CTR) y un grafico de tendencia diaria.
+            Abajo, tabla con todas las campanas y sus metricas a 7 o 30 dias. Las campanas con alertas
+            (CPA spike, CTR drop, sin conversiones, ROAS bajo) se marcan automaticamente.
+            Boton <strong>Sync ahora</strong> para forzar sincronizacion con Google Ads (el sync automatico corre cada hora).
+            Desde la tabla, boton <strong>Analizar</strong> para abrir el chat de analisis sobre esa campana.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Analizar — Chat sobre campanas existentes</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Chat con el LLM que tiene inyectadas todas las metricas reales de tus campanas.
+            Podes preguntar cosas como:
+          </p>
+          <ul style="color:var(--text-dim);font-size:13px;padding-left:20px;margin-top:4px;line-height:1.8">
+            <li><em>"Como van mis campanas esta semana?"</em></li>
+            <li><em>"Que campana deberia pausar?"</em></li>
+            <li><em>"El CPA de [campana X] subio mucho, que hago?"</em></li>
+            <li><em>"Pausa la campana Y"</em> — genera una accion ejecutable</li>
+            <li><em>"Subi el budget de Z a $100/dia"</em></li>
+          </ul>
+          <p style="color:var(--text-dim);font-size:13px;margin-top:8px">
+            Cuando el LLM sugiere una accion concreta, aparecen botones <strong>Ejecutar accion</strong> / <strong>Ignorar</strong>.
+            Si aprob&aacute;s, se ejecuta directo en Google Ads.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Reglas — Optimizacion automatica</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Definis reglas tipo: <em>"Si CPA 7d > $10 → pausar campana"</em>. Cada regla tiene:
+          </p>
+          <ul style="color:var(--text-dim);font-size:13px;padding-left:20px;margin-top:4px;line-height:1.8">
+            <li><strong>Metrica:</strong> CPA, CTR, ROAS, conversiones, spend (a 7d o 30d)</li>
+            <li><strong>Operador:</strong> mayor/menor que un valor</li>
+            <li><strong>Accion:</strong> alertar, pausar campana, activar campana</li>
+            <li><strong>Auto-ejecutar:</strong> si esta activado, se ejecuta sin pedir aprobacion</li>
+          </ul>
+          <p style="color:var(--text-dim);font-size:13px;margin-top:8px">
+            Boton <strong>Evaluar reglas ahora</strong> para chequear todas las campanas contra tus reglas.
+            Las que disparan aparecen como recomendaciones pendientes que podes aprobar o rechazar.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Knowledge — Base de conocimiento (RAG)</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            El agente aprende de dos formas:
+          </p>
+          <ul style="color:var(--text-dim);font-size:13px;padding-left:20px;margin-top:4px;line-height:1.8">
+            <li><strong>Automatico:</strong> cada campana que se crea exitosamente se guarda como conocimiento, incluyendo las correcciones que hiciste durante la conversacion.</li>
+            <li><strong>Manual:</strong> podes cargar best practices, tips de optimizacion, preferencias personales, o resultados de campanas.</li>
+          </ul>
+          <p style="color:var(--text-dim);font-size:13px;margin-top:8px">
+            Este conocimiento se busca por similitud semantica (embeddings + pgvector) y se inyecta al LLM en cada conversacion.
+            Cuanto mas cargues, mejores sugerencias te da.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Logs</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Historial de todas las ejecuciones: campanas creadas, optimizaciones ejecutadas, errores.
+            Cada entrada tiene el payload completo expandible para debugging.
+          </p>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:8px;padding:16px">
+          <h4 style="margin-bottom:6px">Admin</h4>
+          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
+            Configuracion del sistema:
+          </p>
+          <ul style="color:var(--text-dim);font-size:13px;padding-left:20px;margin-top:4px;line-height:1.8">
+            <li><strong>LLM Provider:</strong> elegir entre OpenAI directo u OpenRouter, modelo, y API key. Los cambios aplican inmediatamente.</li>
+            <li><strong>Google Ads API:</strong> Client ID, Client Secret, Developer Token, Refresh Token, Customer ID. Necesarios para crear/modificar campanas y sincronizar metricas.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;padding:16px;border-top:1px solid var(--border);color:var(--text-dim);font-size:12px">
+        <strong>Stack:</strong> Node.js (Express) + Supabase (PostgreSQL + pgvector) + Chart.js<br>
+        <strong>LLM:</strong> Configurable (OpenAI / OpenRouter / cualquier provider compatible)<br>
+        <strong>API:</strong> Google Ads API v18<br>
+        <strong>Hosting:</strong> Raspberry Pi 5 via Cloudflare Tunnel
+      </div>
+    </div>
+  `;
 }
 
 // ===================== UTILS =====================

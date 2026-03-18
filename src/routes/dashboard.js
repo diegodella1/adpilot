@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const metrics = require('../services/metrics');
+const { errorResponse } = require('../services/errors');
 
 const router = Router();
 
@@ -9,7 +10,7 @@ router.get('/summaries', async (req, res) => {
     const data = await metrics.getSummaries();
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -20,7 +21,7 @@ router.get('/campaigns/:id/metrics', async (req, res) => {
     const data = await metrics.getDailyMetrics(req.params.id, days);
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -31,7 +32,7 @@ router.get('/global', async (req, res) => {
     const data = await metrics.getGlobalMetrics(days);
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 
@@ -41,7 +42,7 @@ router.post('/sync', async (req, res) => {
     const result = await metrics.syncFromGoogleAds();
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    errorResponse(res, err);
   }
 });
 

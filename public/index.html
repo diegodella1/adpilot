@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AdPilot</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -18,6 +18,7 @@
       <button id="btn-logs" onclick="showView('logs')">Logs</button>
       <button id="btn-knowledge" onclick="showView('knowledge')">Knowledge</button>
       <button id="btn-admin" onclick="showView('admin')">Admin</button>
+      <button id="btn-docs" onclick="showView('docs')">Docs</button>
     </div>
   </header>
 
@@ -243,9 +244,42 @@
         </div>
         <button class="admin-save" onclick="saveSettings()">Guardar</button>
       </div>
+      <div class="admin-section">
+        <h3>Google Ads API</h3>
+        <div class="admin-field">
+          <label>Client ID</label>
+          <input type="text" id="s-gads-client-id" placeholder="123456789.apps.googleusercontent.com">
+        </div>
+        <div class="admin-field">
+          <label>Client Secret</label>
+          <input type="password" id="s-gads-client-secret" placeholder="GOCSPX-...">
+        </div>
+        <div class="admin-field">
+          <label>Developer Token</label>
+          <input type="password" id="s-gads-dev-token" placeholder="xxxxxxxxxxxxxxxxxxxx">
+        </div>
+        <div class="admin-field">
+          <label>Refresh Token</label>
+          <input type="password" id="s-gads-refresh-token" placeholder="1//0...">
+        </div>
+        <div class="admin-field">
+          <label>Customer ID (sin guiones)</label>
+          <input type="text" id="s-gads-customer-id" placeholder="1234567890">
+        </div>
+        <div class="admin-field">
+          <label>Login Customer ID (MCC, opcional)</label>
+          <input type="text" id="s-gads-login-customer-id" placeholder="1234567890">
+        </div>
+        <button class="admin-save" onclick="saveGoogleAds()">Guardar Google Ads</button>
+      </div>
+    </div>
+
+    <!-- Docs view -->
+    <div class="admin-panel" id="view-docs">
+      <div id="docs-content"></div>
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=2"></script>
 </body>
 </html>

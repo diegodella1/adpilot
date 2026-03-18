@@ -2,11 +2,21 @@ const supabase = require('../db/supabase');
 const llm = require('./llm');
 const knowledge = require('./knowledge');
 
-const VALID_STATES = ['intake', 'clarifying', 'reviewing', 'confirmed', 'executing', 'done', 'error'];
+// Lock por conversación para evitar race conditions
+const activeLocks = new Map();
 
-/**
- * Crea una conversación nueva
- */
+async function withLock(conversationId, fn) {
+  while (activeLocks.has(conversationId)) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+  activeLocks.set(conversationId, true);
+  try {
+    return await fn();
+  } finally {
+    activeLocks.delete(conversationId);
+  }
+}
+
 async function create() {
   const { data, error } = await supabase
     .from('adpilot_conversations')
@@ -17,9 +27,6 @@ async function create() {
   return data;
 }
 
-/**
- * Obtiene una conversación por ID
- */
 async function get(id) {
   const { data, error } = await supabase
     .from('adpilot_conversations')
@@ -30,9 +37,6 @@ async function get(id) {
   return data;
 }
 
-/**
- * Lista conversaciones (más recientes primero)
- */
 async function list(limit = 20) {
   const { data, error } = await supabase
     .from('adpilot_conversations')
@@ -44,70 +48,64 @@ async function list(limit = 20) {
 }
 
 /**
- * Procesa un mensaje del usuario en una conversación
+ * Procesa un mensaje del usuario — con lock por conversación
  */
 async function processMessage(conversationId, userMessage) {
-  const conv = await get(conversationId);
-  if (!conv) throw new Error('Conversation not found');
-  if (conv.state === 'done' || conv.state === 'executing') {
-    throw new Error(`Conversation is in "${conv.state}" state and cannot accept messages`);
-  }
+  return withLock(conversationId, async () => {
+    const conv = await get(conversationId);
+    if (!conv) throw new Error('Conversation not found');
 
-  // Detectar si el usuario confirma ejecución
-  if (conv.state === 'reviewing' && llm.detectUserConfirmation(userMessage)) {
-    const messages = [...conv.messages, { role: 'user', content: userMessage }];
-    await update(conversationId, { state: 'confirmed', messages });
+    const blockedStates = ['done', 'executing', 'error'];
+    if (blockedStates.includes(conv.state)) {
+      throw new Error(`Conversation is in "${conv.state}" state`);
+    }
+
+    // Sanitizar input
+    const sanitized = llm.sanitizeInput(userMessage);
+    if (!sanitized) throw new Error('Empty message');
+
+    // Detectar si el usuario confirma ejecución
+    if (conv.state === 'reviewing' && llm.detectUserConfirmation(sanitized)) {
+      const messages = [...conv.messages, { role: 'user', content: sanitized }];
+      await update(conversationId, { state: 'confirmed', messages });
+      return {
+        state: 'confirmed',
+        message: 'Campaña confirmada! Ejecutando creación en Google Ads...',
+        draft: conv.draft,
+      };
+    }
+
+    const messages = [...conv.messages, { role: 'user', content: sanitized }];
+
+    // RAG (opcional, no bloquea)
+    let ragContext = [];
+    try {
+      ragContext = await knowledge.search(sanitized, { count: 3 });
+    } catch (e) {
+      console.warn('RAG search failed:', e.message);
+    }
+
+    // Llamar al LLM
+    const llmMessages = messages.map(m => ({ role: m.role, content: m.content }));
+    const assistantResponse = await llm.chat(llmMessages, { ragContext });
+
+    const newState = llm.detectStateTransition(assistantResponse, conv.state);
+    const campaignJson = llm.extractCampaignJson(assistantResponse);
+
+    const updatedMessages = [...messages, { role: 'assistant', content: assistantResponse }];
+    const updateData = { state: newState, messages: updatedMessages };
+    if (campaignJson) updateData.draft = campaignJson;
+
+    await update(conversationId, updateData);
+
     return {
-      state: 'confirmed',
-      message: '¡Campaña confirmada! Ejecutando creación en Google Ads...',
-      draft: conv.draft,
+      state: newState,
+      message: assistantResponse,
+      draft: campaignJson || conv.draft,
     };
-  }
-
-  // Agregar mensaje del usuario al historial
-  const messages = [...conv.messages, { role: 'user', content: userMessage }];
-
-  // Buscar contexto relevante en la base de conocimiento (RAG)
-  let ragContext = [];
-  try {
-    ragContext = await knowledge.search(userMessage, { count: 3 });
-  } catch (e) {
-    // RAG es opcional, no bloqueamos si falla
-    console.warn('RAG search failed:', e.message);
-  }
-
-  // Llamar al LLM con el historial completo + contexto RAG
-  const llmMessages = messages.map(m => ({ role: m.role, content: m.content }));
-  const assistantResponse = await llm.chat(llmMessages, { ragContext });
-
-  // Detectar transición de estado
-  const newState = llm.detectStateTransition(assistantResponse, conv.state);
-
-  // Extraer draft si hay JSON
-  const campaignJson = llm.extractCampaignJson(assistantResponse);
-
-  // Actualizar conversación
-  const updatedMessages = [...messages, { role: 'assistant', content: assistantResponse }];
-  const updateData = {
-    state: newState,
-    messages: updatedMessages,
-  };
-  if (campaignJson) {
-    updateData.draft = campaignJson;
-  }
-
-  await update(conversationId, updateData);
-
-  return {
-    state: newState,
-    message: assistantResponse,
-    draft: campaignJson || conv.draft,
-  };
+  });
 }
 
-/**
- * Actualiza una conversación
- */
 async function update(id, data) {
   const { error } = await supabase
     .from('adpilot_conversations')
