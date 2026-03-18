@@ -1,36 +1,53 @@
 const supabase = require('../db/supabase');
-const config = require('../config');
-
-let syncInterval = null;
+const googleAds = require('./google-ads');
 
 /**
- * Sync de métricas desde Google Ads (últimos 90 días)
+ * Sync de métricas desde Google Ads (últimos 90 días) — on-demand, per-user
  */
-async function syncFromGoogleAds() {
+async function syncFromGoogleAds(userId) {
   let customer;
   try {
+    customer = await googleAds.listCampaigns(userId); // test connection
+    // Re-get actual customer for raw query
     const { GoogleAdsApi } = require('google-ads-api');
-    const gads = config.googleAds;
-    if (!gads.clientId || !gads.developerToken || !gads.refreshToken) {
-      console.log('Google Ads not configured, skipping sync');
-      return { synced: 0, error: null };
+    const llm = require('./llm');
+    const settings = await llm.getSettings(userId);
+
+    const gads = {};
+    // Get creds from settings
+    const settingKeys = ['gads_client_id', 'gads_client_secret', 'gads_dev_token',
+      'gads_refresh_token', 'gads_customer_id', 'gads_login_customer_id'];
+    for (const k of settingKeys) {
+      if (settings[k]) gads[k.replace('gads_', '')] = settings[k];
     }
+
+    // Map setting names to proper field names
+    const clientId = settings.gads_client_id || require('../config').googleAds.clientId;
+    const clientSecret = settings.gads_client_secret || require('../config').googleAds.clientSecret;
+    const devToken = settings.gads_dev_token || require('../config').googleAds.developerToken;
+    const refreshToken = settings.gads_refresh_token || require('../config').googleAds.refreshToken;
+    const customerId = settings.gads_customer_id || require('../config').googleAds.customerId;
+    const loginCustomerId = settings.gads_login_customer_id || require('../config').googleAds.loginCustomerId;
+
+    if (!clientId || !devToken || !refreshToken) {
+      return { synced: 0, error: 'Google Ads not configured' };
+    }
+
     const client = new GoogleAdsApi({
-      client_id: gads.clientId,
-      client_secret: gads.clientSecret,
-      developer_token: gads.developerToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+      developer_token: devToken,
     });
     customer = client.Customer({
-      customer_id: gads.customerId,
-      login_customer_id: gads.loginCustomerId,
-      refresh_token: gads.refreshToken,
+      customer_id: customerId,
+      login_customer_id: loginCustomerId,
+      refresh_token: refreshToken,
     });
   } catch (e) {
     return { synced: 0, error: e.message };
   }
 
   try {
-    // Últimos 90 días de métricas por campaña por día
     const rows = await customer.query(`
       SELECT
         campaign.id,
@@ -71,26 +88,23 @@ async function syncFromGoogleAds() {
         cpa_micros: row.metrics.cost_per_conversion || 0,
         conversion_value_micros: Math.round((row.metrics.conversions_value || 0) * 1_000_000),
         synced_at: new Date().toISOString(),
+        user_id: userId,
       };
 
-      // Calcular ROAS
       if (record.cost_micros > 0 && record.conversion_value_micros > 0) {
         record.roas = record.conversion_value_micros / record.cost_micros;
       }
 
       await supabase.from('adpilot_metrics').upsert(record, {
-        onConflict: 'campaign_id,date',
+        onConflict: 'user_id,campaign_id,date',
       });
       synced++;
     }
 
-    // Actualizar summaries
-    await updateSummaries();
+    await updateSummaries(userId);
+    await generateAlerts(userId);
 
-    // Generar alertas
-    await generateAlerts();
-
-    console.log(`Metrics sync complete: ${synced} rows`);
+    console.log(`Metrics sync complete for user ${userId}: ${synced} rows`);
     return { synced, error: null };
   } catch (e) {
     console.error('Metrics sync failed:', e.message);
@@ -98,15 +112,13 @@ async function syncFromGoogleAds() {
   }
 }
 
-/**
- * Actualiza resúmenes por campaña (7d y 30d)
- */
-async function updateSummaries() {
-  // Obtener campañas únicas
-  const { data: campaigns } = await supabase
+async function updateSummaries(userId) {
+  let query = supabase
     .from('adpilot_metrics')
     .select('campaign_id, campaign_name, campaign_status')
     .order('date', { ascending: false });
+  if (userId) query = query.eq('user_id', userId);
+  const { data: campaigns } = await query;
 
   const unique = new Map();
   for (const c of campaigns || []) {
@@ -118,11 +130,15 @@ async function updateSummaries() {
   const d30 = new Date(today); d30.setDate(d30.getDate() - 30);
 
   for (const [campaignId, info] of unique) {
-    const agg = (days) => supabase
-      .from('adpilot_metrics')
-      .select('cost_micros, clicks, impressions, conversions, cpa_micros, conversion_value_micros')
-      .eq('campaign_id', campaignId)
-      .gte('date', days.toISOString().split('T')[0]);
+    const agg = (days) => {
+      let q = supabase
+        .from('adpilot_metrics')
+        .select('cost_micros, clicks, impressions, conversions, cpa_micros, conversion_value_micros')
+        .eq('campaign_id', campaignId)
+        .gte('date', days.toISOString().split('T')[0]);
+      if (userId) q = q.eq('user_id', userId);
+      return q;
+    };
 
     const { data: d7Data } = await agg(d7);
     const { data: d30Data } = await agg(d30);
@@ -139,7 +155,7 @@ async function updateSummaries() {
     const imp30 = sum(d30Data, 'impressions');
     const val30 = sum(d30Data, 'conversion_value_micros');
 
-    await supabase.from('adpilot_campaign_summary').upsert({
+    const summaryData = {
       campaign_id: campaignId,
       campaign_name: info.campaign_name,
       campaign_status: info.campaign_status,
@@ -158,40 +174,40 @@ async function updateSummaries() {
       ctr_30d: imp30 > 0 ? clicks30 / imp30 : 0,
       roas_30d: spend30 > 0 ? val30 / spend30 : 0,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'campaign_id' });
+      user_id: userId,
+    };
+
+    await supabase.from('adpilot_campaign_summary').upsert(summaryData, {
+      onConflict: 'user_id,campaign_id',
+    });
   }
 }
 
-/**
- * Genera alertas automáticas
- */
-async function generateAlerts() {
-  const { data: summaries } = await supabase
+async function generateAlerts(userId) {
+  let query = supabase
     .from('adpilot_campaign_summary')
     .select('*')
     .eq('campaign_status', 'ENABLED');
+  if (userId) query = query.eq('user_id', userId);
+  const { data: summaries } = await query;
 
   for (const s of summaries || []) {
     const alerts = [];
 
-    // CPA subió más de 50% vs 30d
     if (s.cpa_7d_micros > 0 && s.cpa_30d_micros > 0) {
       const ratio = s.cpa_7d_micros / s.cpa_30d_micros;
       if (ratio > 1.5) alerts.push({ type: 'cpa_spike', message: `CPA subió ${Math.round((ratio - 1) * 100)}% vs últimos 30d`, severity: 'high' });
     }
 
-    // CTR cayó más de 30%
     if (s.ctr_7d > 0 && s.ctr_30d > 0) {
       const ratio = s.ctr_7d / s.ctr_30d;
       if (ratio < 0.7) alerts.push({ type: 'ctr_drop', message: `CTR cayó ${Math.round((1 - ratio) * 100)}% vs últimos 30d`, severity: 'medium' });
     }
 
-    // Sin conversiones en 7d pero con gasto
     if (s.spend_7d_micros > 0 && s.conversions_7d === 0) {
       alerts.push({ type: 'no_conversions', message: 'Sin conversiones en últimos 7 días con gasto activo', severity: 'high' });
     }
 
-    // ROAS bajo (menor a 1)
     if (s.roas_7d > 0 && s.roas_7d < 1) {
       alerts.push({ type: 'low_roas', message: `ROAS de ${s.roas_7d.toFixed(2)} (bajo 1.0)`, severity: 'high' });
     }
@@ -199,53 +215,50 @@ async function generateAlerts() {
     if (alerts.length > 0 || (s.alerts && s.alerts.length > 0)) {
       await supabase.from('adpilot_campaign_summary')
         .update({ alerts })
-        .eq('campaign_id', s.campaign_id);
+        .eq('campaign_id', s.campaign_id)
+        .eq('user_id', userId);
     }
   }
 }
 
-/**
- * Obtiene resúmenes de campañas
- */
-async function getSummaries() {
-  const { data, error } = await supabase
+async function getSummaries(userId) {
+  let query = supabase
     .from('adpilot_campaign_summary')
     .select('*')
     .order('spend_7d_micros', { ascending: false });
+  if (userId) query = query.eq('user_id', userId);
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
 
-/**
- * Obtiene métricas diarias para una campaña (para gráficos)
- */
-async function getDailyMetrics(campaignId, days = 30) {
+async function getDailyMetrics(campaignId, days = 30, userId = null) {
   const since = new Date();
   since.setDate(since.getDate() - days);
-  const { data, error } = await supabase
+  let query = supabase
     .from('adpilot_metrics')
     .select('date, impressions, clicks, conversions, cost_micros, cpa_micros, ctr, roas')
     .eq('campaign_id', campaignId)
     .gte('date', since.toISOString().split('T')[0])
     .order('date', { ascending: true });
+  if (userId) query = query.eq('user_id', userId);
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
 
-/**
- * Obtiene métricas agregadas globales (todas las campañas)
- */
-async function getGlobalMetrics(days = 30) {
+async function getGlobalMetrics(days = 30, userId = null) {
   const since = new Date();
   since.setDate(since.getDate() - days);
-  const { data, error } = await supabase
+  let query = supabase
     .from('adpilot_metrics')
     .select('date, impressions, clicks, conversions, cost_micros')
     .gte('date', since.toISOString().split('T')[0])
     .order('date', { ascending: true });
+  if (userId) query = query.eq('user_id', userId);
+  const { data, error } = await query;
   if (error) throw error;
 
-  // Agregar por día
   const byDate = new Map();
   for (const row of data || []) {
     const existing = byDate.get(row.date) || { date: row.date, impressions: 0, clicks: 0, conversions: 0, cost_micros: 0 };
@@ -259,25 +272,7 @@ async function getGlobalMetrics(days = 30) {
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/**
- * Inicia sync periódico
- */
-function startPeriodicSync(intervalMs = 3600_000) {
-  if (syncInterval) clearInterval(syncInterval);
-  console.log(`Metrics sync scheduled every ${intervalMs / 60000} minutes`);
-  syncInterval = setInterval(() => syncFromGoogleAds(), intervalMs);
-  // Sync inicial después de 10 segundos
-  setTimeout(() => syncFromGoogleAds(), 10_000);
-}
-
-function stopPeriodicSync() {
-  if (syncInterval) {
-    clearInterval(syncInterval);
-    syncInterval = null;
-  }
-}
-
 module.exports = {
   syncFromGoogleAds, getSummaries, getDailyMetrics, getGlobalMetrics,
-  startPeriodicSync, stopPeriodicSync, updateSummaries, generateAlerts,
+  updateSummaries, generateAlerts,
 };

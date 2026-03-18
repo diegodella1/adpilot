@@ -1,19 +1,20 @@
 const supabase = require('../db/supabase');
-const config = require('../config');
 const knowledge = require('./knowledge');
+const googleAds = require('./google-ads');
 
-/**
- * Evalúa todas las reglas activas contra los summaries actuales
- */
-async function evaluateRules() {
-  const { data: rules } = await supabase
+async function evaluateRules(userId) {
+  let rulesQuery = supabase
     .from('adpilot_rules')
     .select('*')
     .eq('enabled', true);
+  if (userId) rulesQuery = rulesQuery.eq('user_id', userId);
+  const { data: rules } = await rulesQuery;
 
-  const { data: summaries } = await supabase
+  let summariesQuery = supabase
     .from('adpilot_campaign_summary')
     .select('*');
+  if (userId) summariesQuery = summariesQuery.eq('user_id', userId);
+  const { data: summaries } = await summariesQuery;
 
   if (!rules?.length || !summaries?.length) return [];
 
@@ -32,17 +33,19 @@ async function evaluateRules() {
           status: rule.auto_execute ? 'pending_execution' : 'pending',
           recommendation: formatRecommendation(rule, summary),
           payload: { rule, action, summary_snapshot: summarize(summary) },
+          user_id: userId,
         };
 
-        // Evitar duplicados recientes (misma regla + campaña en últimas 24h)
         const since = new Date(); since.setHours(since.getHours() - 24);
-        const { data: existing } = await supabase
+        let existsQuery = supabase
           .from('adpilot_optimization_logs')
           .select('id')
           .eq('rule_id', rule.id)
           .eq('campaign_id', summary.campaign_id)
           .gte('created_at', since.toISOString())
           .limit(1);
+        if (userId) existsQuery = existsQuery.eq('user_id', userId);
+        const { data: existing } = await existsQuery;
 
         if (!existing?.length) {
           const { data } = await supabase
@@ -52,15 +55,13 @@ async function evaluateRules() {
             .single();
           triggered.push(data);
 
-          // Auto-execute si está habilitado
           if (rule.auto_execute) {
-            await executeOptimization(data.id);
+            await executeOptimization(data.id, userId);
           }
         }
       }
     }
 
-    // Actualizar last_triggered
     if (triggered.length > 0) {
       await supabase.from('adpilot_rules')
         .update({ last_triggered_at: new Date().toISOString() })
@@ -71,22 +72,17 @@ async function evaluateRules() {
   return triggered;
 }
 
-/**
- * Evalúa una condición contra un summary de campaña
- */
 function evaluateCondition(condition, summary) {
-  const metric = condition.metric; // e.g. 'cpa_7d_micros', 'ctr_7d', 'roas_7d'
-  const operator = condition.operator; // '>', '<', '>=', '<=', '=='
+  const metric = condition.metric;
+  const operator = condition.operator;
   const threshold = condition.value;
   const scope = condition.scope || 'campaign';
 
-  // Solo evaluar campañas activas por default
   if (scope === 'campaign' && summary.campaign_status !== 'ENABLED') return false;
 
   const value = Number(summary[metric]);
   if (isNaN(value)) return false;
 
-  // Para métricas en micros, el threshold viene en la unidad humana
   const isMicros = metric.includes('micros');
   const compareValue = isMicros ? value / 1_000_000 : value;
 
@@ -100,9 +96,6 @@ function evaluateCondition(condition, summary) {
   }
 }
 
-/**
- * Genera un texto de recomendación legible
- */
 function formatRecommendation(rule, summary) {
   const micro = (v) => `$${(v / 1_000_000).toFixed(2)}`;
   const s = summary;
@@ -122,10 +115,7 @@ function summarize(s) {
   };
 }
 
-/**
- * Ejecuta una optimización aprobada via Google Ads API
- */
-async function executeOptimization(logId) {
+async function executeOptimization(logId, userId = null) {
   const { data: log } = await supabase
     .from('adpilot_optimization_logs')
     .select('*')
@@ -141,47 +131,58 @@ async function executeOptimization(logId) {
   if (!action) throw new Error('No action in payload');
 
   try {
-    const gads = config.googleAds;
-    if (!gads.clientId || !gads.developerToken) {
-      throw new Error('Google Ads not configured');
-    }
+    const { customer, customerId } = await googleAds.listCampaigns(userId)
+      .then(() => require('./google-ads')) // just to validate connection
+      .catch(() => { throw new Error('Google Ads not configured'); });
 
+    // Get actual client for mutations
+    const llm = require('./llm');
+    const settings = await llm.getSettings(userId);
     const { GoogleAdsApi } = require('google-ads-api');
-    const client = new GoogleAdsApi({
-      client_id: gads.clientId,
-      client_secret: gads.clientSecret,
-      developer_token: gads.developerToken,
+
+    const clientId = settings.gads_client_id || require('../config').googleAds.clientId;
+    const clientSecret = settings.gads_client_secret || require('../config').googleAds.clientSecret;
+    const devToken = settings.gads_dev_token || require('../config').googleAds.developerToken;
+    const refreshToken = settings.gads_refresh_token || require('../config').googleAds.refreshToken;
+    const custId = settings.gads_customer_id || require('../config').googleAds.customerId;
+    const loginCustId = settings.gads_login_customer_id || require('../config').googleAds.loginCustomerId;
+
+    if (!clientId || !devToken) throw new Error('Google Ads not configured');
+
+    const gadsClient = new GoogleAdsApi({
+      client_id: clientId,
+      client_secret: clientSecret,
+      developer_token: devToken,
     });
-    const customer = client.Customer({
-      customer_id: gads.customerId,
-      login_customer_id: gads.loginCustomerId,
-      refresh_token: gads.refreshToken,
+    const cust = gadsClient.Customer({
+      customer_id: custId,
+      login_customer_id: loginCustId,
+      refresh_token: refreshToken,
     });
 
     switch (action.type) {
       case 'pause_campaign':
-        await customer.campaigns.update([{
-          resource_name: `customers/${gads.customerId}/campaigns/${log.campaign_id}`,
+        await cust.campaigns.update([{
+          resource_name: `customers/${custId}/campaigns/${log.campaign_id}`,
           status: 'PAUSED',
         }]);
         break;
 
       case 'enable_campaign':
-        await customer.campaigns.update([{
-          resource_name: `customers/${gads.customerId}/campaigns/${log.campaign_id}`,
+        await cust.campaigns.update([{
+          resource_name: `customers/${custId}/campaigns/${log.campaign_id}`,
           status: 'ENABLED',
         }]);
         break;
 
       case 'adjust_budget':
         if (action.params?.new_budget_micros) {
-          // Buscar budget resource name
-          const campaigns = await customer.query(`
+          const campaigns = await cust.query(`
             SELECT campaign.campaign_budget
             FROM campaign WHERE campaign.id = ${log.campaign_id}
           `);
           if (campaigns[0]) {
-            await customer.campaignBudgets.update([{
+            await cust.campaignBudgets.update([{
               resource_name: campaigns[0].campaign.campaign_budget,
               amount_micros: action.params.new_budget_micros,
             }]);
@@ -190,7 +191,6 @@ async function executeOptimization(logId) {
         break;
 
       case 'alert':
-        // Solo notificación, no ejecuta nada en Google Ads
         break;
 
       default:
@@ -201,12 +201,12 @@ async function executeOptimization(logId) {
       .update({ status: 'executed' })
       .eq('id', logId);
 
-    // Guardar en knowledge como aprendizaje
     await knowledge.add({
       category: 'optimization',
       title: `Optimización ejecutada: ${action.type} en "${log.campaign_name}"`,
       content: log.recommendation,
       metadata: { log_id: logId, campaign_id: log.campaign_id },
+      userId,
     }).catch(() => {});
 
     return { success: true };
@@ -218,36 +218,34 @@ async function executeOptimization(logId) {
   }
 }
 
-/**
- * Pide al LLM que analice las métricas y genere recomendaciones
- */
-async function llmAnalysis(campaignId) {
-  const { data: summary } = await supabase
+async function llmAnalysis(campaignId, userId = null) {
+  let summaryQuery = supabase
     .from('adpilot_campaign_summary')
     .select('*')
-    .eq('campaign_id', campaignId)
-    .single();
+    .eq('campaign_id', campaignId);
+  if (userId) summaryQuery = summaryQuery.eq('user_id', userId);
+  const { data: summary } = await summaryQuery.single();
 
   if (!summary) throw new Error('Campaign summary not found');
 
-  const { data: daily } = await supabase
+  let dailyQuery = supabase
     .from('adpilot_metrics')
     .select('*')
     .eq('campaign_id', campaignId)
     .order('date', { ascending: false })
     .limit(14);
+  if (userId) dailyQuery = dailyQuery.eq('user_id', userId);
+  const { data: daily } = await dailyQuery;
 
-  // Buscar conocimiento relevante
   let ragContext = [];
   try {
     ragContext = await knowledge.search(
       `optimización ${summary.campaign_name} CPA CTR ROAS`,
-      { count: 3 }
+      { count: 3, userId }
     );
   } catch (e) {}
 
-  const prompt = buildAnalysisPrompt(summary, daily || [], ragContext);
-  return prompt;
+  return buildAnalysisPrompt(summary, daily || [], ragContext);
 }
 
 function buildAnalysisPrompt(summary, daily, ragContext) {
@@ -281,25 +279,21 @@ function buildAnalysisPrompt(summary, daily, ragContext) {
   };
 }
 
-/**
- * Lista recomendaciones pendientes
- */
-async function getPendingRecommendations() {
-  const { data, error } = await supabase
+async function getPendingRecommendations(userId = null) {
+  let query = supabase
     .from('adpilot_optimization_logs')
     .select('*')
     .in('status', ['pending', 'pending_execution'])
     .order('created_at', { ascending: false });
+  if (userId) query = query.eq('user_id', userId);
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
 }
 
-/**
- * Aprueba o rechaza una recomendación
- */
-async function resolveRecommendation(logId, approved) {
+async function resolveRecommendation(logId, approved, userId = null) {
   if (approved) {
-    return executeOptimization(logId);
+    return executeOptimization(logId, userId);
   }
   await supabase.from('adpilot_optimization_logs')
     .update({ status: 'rejected' })
@@ -307,25 +301,32 @@ async function resolveRecommendation(logId, approved) {
   return { success: true };
 }
 
-// CRUD de reglas
-async function listRules() {
-  const { data } = await supabase.from('adpilot_rules').select('*').order('created_at');
+async function listRules(userId = null) {
+  let query = supabase.from('adpilot_rules').select('*').order('created_at');
+  if (userId) query = query.eq('user_id', userId);
+  const { data } = await query;
   return data || [];
 }
 
-async function createRule(rule) {
-  const { data, error } = await supabase.from('adpilot_rules').insert(rule).select('*').single();
+async function createRule(rule, userId = null) {
+  const record = { ...rule };
+  if (userId) record.user_id = userId;
+  const { data, error } = await supabase.from('adpilot_rules').insert(record).select('*').single();
   if (error) throw error;
   return data;
 }
 
-async function updateRule(id, updates) {
-  const { error } = await supabase.from('adpilot_rules').update(updates).eq('id', id);
+async function updateRule(id, updates, userId = null) {
+  let query = supabase.from('adpilot_rules').update(updates).eq('id', id);
+  if (userId) query = query.eq('user_id', userId);
+  const { error } = await query;
   if (error) throw error;
 }
 
-async function deleteRule(id) {
-  const { error } = await supabase.from('adpilot_rules').delete().eq('id', id);
+async function deleteRule(id, userId = null) {
+  let query = supabase.from('adpilot_rules').delete().eq('id', id);
+  if (userId) query = query.eq('user_id', userId);
+  const { error } = await query;
   if (error) throw error;
 }
 

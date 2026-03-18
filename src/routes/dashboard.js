@@ -4,42 +4,38 @@ const { errorResponse } = require('../services/errors');
 
 const router = Router();
 
-// Resúmenes de campañas (tabla principal del dashboard)
 router.get('/summaries', async (req, res) => {
   try {
-    const data = await metrics.getSummaries();
+    const data = await metrics.getSummaries(req.user.id);
     res.json(data);
   } catch (err) {
     errorResponse(res, err);
   }
 });
 
-// Métricas diarias de una campaña (para gráficos)
 router.get('/campaigns/:id/metrics', async (req, res) => {
   try {
     const days = parseInt(req.query.days || '30', 10);
-    const data = await metrics.getDailyMetrics(req.params.id, days);
+    const data = await metrics.getDailyMetrics(req.params.id, days, req.user.id);
     res.json(data);
   } catch (err) {
     errorResponse(res, err);
   }
 });
 
-// Métricas globales (todas las campañas agregadas)
 router.get('/global', async (req, res) => {
   try {
     const days = parseInt(req.query.days || '30', 10);
-    const data = await metrics.getGlobalMetrics(days);
+    const data = await metrics.getGlobalMetrics(days, req.user.id);
     res.json(data);
   } catch (err) {
     errorResponse(res, err);
   }
 });
 
-// Forzar sync manual
 router.post('/sync', async (req, res) => {
   try {
-    const result = await metrics.syncFromGoogleAds();
+    const result = await metrics.syncFromGoogleAds(req.user.id);
     res.json(result);
   } catch (err) {
     errorResponse(res, err);

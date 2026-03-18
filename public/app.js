@@ -1,34 +1,217 @@
 const API = '';
 let TOKEN = localStorage.getItem('adpilot_token') || '';
+let USER = JSON.parse(localStorage.getItem('adpilot_user') || 'null');
 let currentConvId = null;
 let sending = false;
 let analysisConvId = null;
 let pendingAction = null;
 let globalChart = null;
 
-// Auth
+// ===================== TOAST SYSTEM =====================
+
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  toast.offsetHeight;
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, 4000);
+}
+
+// ===================== CONFIRM MODAL =====================
+
+let confirmResolve = null;
+
+function showConfirm(msg, okLabel = 'Eliminar') {
+  return new Promise(resolve => {
+    confirmResolve = resolve;
+    document.getElementById('confirm-message').textContent = msg;
+    document.getElementById('confirm-ok-btn').textContent = okLabel;
+    document.getElementById('confirm-overlay').classList.add('show');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('confirm-ok-btn').addEventListener('click', () => {
+    document.getElementById('confirm-overlay').classList.remove('show');
+    if (confirmResolve) { confirmResolve(true); confirmResolve = null; }
+  });
+  document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
+    document.getElementById('confirm-overlay').classList.remove('show');
+    if (confirmResolve) { confirmResolve(false); confirmResolve = null; }
+  });
+});
+
+// ===================== LOADING HELPER =====================
+
+async function withLoading(btn, fn) {
+  if (!btn) return fn();
+  btn.disabled = true;
+  btn.classList.add('loading');
+  try {
+    return await fn();
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+  }
+}
+
+// ===================== AUTH =====================
+
 function headers() {
   const h = { 'Content-Type': 'application/json' };
   if (TOKEN) h['Authorization'] = `Bearer ${TOKEN}`;
   return h;
 }
 
-if (!TOKEN) {
-  TOKEN = prompt('Token de acceso:') || '';
-  if (TOKEN) localStorage.setItem('adpilot_token', TOKEN);
+function isAdmin() {
+  return USER && USER.role === 'admin';
 }
 
-// Views
-const ALL_VIEWS = ['chat', 'dashboard', 'analyze', 'optimizer', 'logs', 'knowledge', 'admin', 'docs'];
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-header').style.display = 'flex';
+  document.getElementById('main-app').style.display = 'flex';
+
+  // Show user info
+  const display = document.getElementById('user-display');
+  if (USER) {
+    display.textContent = USER.name || USER.email;
+  }
+
+  // Show/hide admin-only sections in header
+  // Admin platform section visibility is handled in loadSettings
+
+  loadConversations();
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('main-header').style.display = 'none';
+  document.getElementById('main-app').style.display = 'none';
+}
+
+let setupMode = false;
+
+function toggleSetupMode() {
+  setupMode = !setupMode;
+  document.getElementById('login-btn').style.display = setupMode ? 'none' : 'block';
+  document.getElementById('setup-btn').style.display = setupMode ? 'block' : 'none';
+  document.getElementById('setup-name').style.display = setupMode ? 'block' : 'none';
+  document.getElementById('login-subtitle').textContent = setupMode ? 'Crear primer admin' : 'Inicia sesion';
+  document.getElementById('setup-link').textContent = setupMode ? 'Volver al login' : 'Primer uso? Crear admin';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  if (!email || !password) {
+    document.getElementById('login-error').textContent = 'Email y password requeridos';
+    return;
+  }
+
+  document.getElementById('login-btn').disabled = true;
+  try {
+    const res = await fetch(`${API}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      document.getElementById('login-error').textContent = data.error;
+      return;
+    }
+    TOKEN = data.token;
+    USER = data.user;
+    localStorage.setItem('adpilot_token', TOKEN);
+    localStorage.setItem('adpilot_user', JSON.stringify(USER));
+    document.getElementById('login-error').textContent = '';
+    showApp();
+  } catch (e) {
+    document.getElementById('login-error').textContent = 'Error de conexion';
+  } finally {
+    document.getElementById('login-btn').disabled = false;
+  }
+}
+
+async function doSetup() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  const name = document.getElementById('setup-name').value.trim();
+  if (!email || !password) {
+    document.getElementById('login-error').textContent = 'Email y password requeridos';
+    return;
+  }
+
+  document.getElementById('setup-btn').disabled = true;
+  try {
+    const res = await fetch(`${API}/api/auth/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      document.getElementById('login-error').textContent = data.error;
+      return;
+    }
+    TOKEN = data.token;
+    USER = data.user;
+    localStorage.setItem('adpilot_token', TOKEN);
+    localStorage.setItem('adpilot_user', JSON.stringify(USER));
+    document.getElementById('login-error').textContent = '';
+    showToast('Admin creado exitosamente', 'success');
+    showApp();
+  } catch (e) {
+    document.getElementById('login-error').textContent = 'Error de conexion';
+  } finally {
+    document.getElementById('setup-btn').disabled = false;
+  }
+}
+
+function doLogout() {
+  TOKEN = '';
+  USER = null;
+  localStorage.removeItem('adpilot_token');
+  localStorage.removeItem('adpilot_user');
+  showLogin();
+}
+
+// Validate token on load
+async function validateToken() {
+  if (!TOKEN) { showLogin(); return; }
+  try {
+    const res = await fetch(`${API}/api/auth/me`, { headers: headers() });
+    if (!res.ok) { doLogout(); return; }
+    const data = await res.json();
+    USER = data.user;
+    localStorage.setItem('adpilot_user', JSON.stringify(USER));
+    showApp();
+  } catch (e) {
+    doLogout();
+  }
+}
+
+// Init
+validateToken();
+
+// ===================== VIEWS =====================
+
+const ALL_VIEWS = ['chat', 'dashboard', 'analyze', 'optimizer', 'logs', 'knowledge', 'keywords', 'admin', 'docs'];
 
 function showView(view) {
-  document.querySelectorAll('.header-actions button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.header-actions button:not(.btn-logout)').forEach(b => b.classList.remove('active'));
   document.getElementById(`btn-${view}`).classList.add('active');
   for (const v of ALL_VIEWS) {
     const el = document.getElementById(`view-${v}`);
     if (el) el.style.display = v === view ? (v === 'chat' || v === 'analyze' ? 'flex' : 'block') : 'none';
   }
-  // Sidebar only visible in chat mode
   document.querySelector('.sidebar').style.display = (view === 'chat') ? 'flex' : 'none';
 
   if (view === 'logs') loadLogs();
@@ -44,6 +227,7 @@ function showView(view) {
 async function loadConversations() {
   try {
     const res = await fetch(`${API}/api/conversations`, { headers: headers() });
+    if (res.status === 401) { doLogout(); return; }
     const list = await res.json();
     const el = document.getElementById('conv-list');
     el.innerHTML = list.map(c => `
@@ -84,7 +268,7 @@ async function openConversation(id) {
 function renderMessages(messages) {
   const el = document.getElementById('messages');
   if (!messages.length) {
-    el.innerHTML = '<div class="empty-state">Describí la campaña que querés crear</div>';
+    el.innerHTML = '<div class="empty-state">Describi la campana que queres crear</div>';
     return;
   }
   el.innerHTML = messages.map(m => `
@@ -109,7 +293,6 @@ async function send() {
   const msg = input.value.trim();
   if (!msg || sending) return;
 
-  // Auto-crear conversación si no hay ninguna seleccionada
   if (!currentConvId) {
     try {
       const res = await fetch(`${API}/api/conversations`, { method: 'POST', headers: headers() });
@@ -119,7 +302,7 @@ async function send() {
       updateState('intake');
       loadConversations();
     } catch (e) {
-      addMessage('system', 'Error creando conversación: ' + e.message);
+      addMessage('system', 'Error creando conversacion: ' + e.message);
       return;
     }
   }
@@ -155,7 +338,7 @@ async function sendMessage(msg) {
     loadConversations();
   } catch (e) {
     removeLastSystem('messages');
-    addMessage('system', `Error de conexión: ${e.message}`);
+    addMessage('system', `Error de conexion: ${e.message}`);
   } finally {
     sending = false;
     document.getElementById('send-btn').disabled = false;
@@ -173,7 +356,7 @@ async function approveAndExecute() {
     const data = await res.json();
     removeLastSystem('messages');
     if (data.success) {
-      addMessage('system', `Campaña creada! ID: ${data.campaignId}`);
+      addMessage('system', `Campana creada! ID: ${data.campaignId}`);
       if (data.warnings?.length) addMessage('system', `Warnings: ${data.warnings.map(w => w.error).join(', ')}`);
       updateState('done');
     } else {
@@ -182,7 +365,7 @@ async function approveAndExecute() {
     }
     loadConversations();
   } catch (e) {
-    addMessage('system', `Error de ejecución: ${e.message}`);
+    addMessage('system', `Error de ejecucion: ${e.message}`);
   }
 }
 
@@ -195,9 +378,9 @@ function updateState(state) {
   bar.style.display = 'flex';
   dot.className = `state-dot ${state}`;
   const labels = {
-    intake: 'Esperando descripción', clarifying: 'Recopilando información',
+    intake: 'Esperando descripcion', clarifying: 'Recopilando informacion',
     reviewing: 'Revisando estructura', confirmed: 'Confirmado',
-    executing: 'Ejecutando...', done: 'Campaña creada', error: 'Error',
+    executing: 'Ejecutando...', done: 'Campana creada', error: 'Error',
   };
   text.textContent = labels[state] || state;
   actions.style.display = state === 'reviewing' ? 'flex' : 'none';
@@ -208,7 +391,6 @@ function updateState(state) {
 async function loadDashboard() {
   const days = parseInt(document.getElementById('dash-period').value);
 
-  // Load summaries + global metrics in parallel
   try {
     const [sumRes, globalRes] = await Promise.all([
       fetch(`${API}/api/dashboard/summaries`, { headers: headers() }),
@@ -223,7 +405,7 @@ async function loadDashboard() {
     renderAlerts(summaries);
   } catch (e) {
     console.error(e);
-    document.getElementById('kpi-cards').innerHTML = '<div style="color:var(--text-dim)">No se pudieron cargar las métricas. Configurá Google Ads primero.</div>';
+    document.getElementById('kpi-cards').innerHTML = '<div style="color:var(--text-dim)">No se pudieron cargar las metricas. Configura Google Ads primero.</div>';
   }
 }
 
@@ -245,7 +427,7 @@ function renderKPIs(summaries, days) {
     kpiCard('Conversiones', totalConv.toFixed(1), 'var(--green)'),
     kpiCard('CPA', cpa > 0 ? `$${cpa.toFixed(2)}` : 'N/A', cpa > 10 ? 'var(--red)' : 'var(--green)'),
     kpiCard('CTR', `${ctr.toFixed(2)}%`, ctr < 1 ? 'var(--red)' : 'var(--green)'),
-    kpiCard('Campañas', summaries.length, 'var(--text-dim)'),
+    kpiCard('Campanas', summaries.length, 'var(--text-dim)'),
   ].join('');
 }
 
@@ -263,7 +445,7 @@ function renderGlobalChart(data) {
   globalChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: data.map(d => d.date.slice(5)), // MM-DD
+      labels: data.map(d => d.date.slice(5)),
       datasets: [
         {
           label: 'Spend ($)',
@@ -305,7 +487,7 @@ function renderCampaignsTable(summaries, days) {
 
   let html = `<table style="width:100%;border-collapse:collapse;font-size:13px">
     <thead><tr style="border-bottom:1px solid var(--border);text-align:left">
-      <th style="padding:8px">Campaña</th>
+      <th style="padding:8px">Campana</th>
       <th style="padding:8px">Status</th>
       <th style="padding:8px">Spend</th>
       <th style="padding:8px">Clicks</th>
@@ -337,7 +519,7 @@ function renderCampaignsTable(summaries, days) {
     </tr>`;
   }
   html += '</tbody></table>';
-  if (!summaries.length) html = '<div style="color:var(--text-dim);font-size:13px;padding:12px">Sin datos. Configurá Google Ads y hacé un sync.</div>';
+  if (!summaries.length) html = '<div style="color:var(--text-dim);font-size:13px;padding:12px">Sin datos. Configura Google Ads y hace un sync.</div>';
 
   document.getElementById('campaigns-table').innerHTML = html;
 }
@@ -361,26 +543,27 @@ function renderAlerts(summaries) {
   `).join('');
 }
 
-async function syncMetrics() {
-  try {
-    const res = await fetch(`${API}/api/dashboard/sync`, { method: 'POST', headers: headers() });
-    const data = await res.json();
-    if (data.error) alert('Sync error: ' + data.error);
-    else alert(`Sync completo: ${data.synced} filas`);
-    loadDashboard();
-  } catch (e) { alert('Error: ' + e.message); }
+async function syncMetrics(btn) {
+  await withLoading(btn, async () => {
+    try {
+      const res = await fetch(`${API}/api/dashboard/sync`, { method: 'POST', headers: headers() });
+      const data = await res.json();
+      if (data.error) showToast('Sync error: ' + data.error, 'error');
+      else showToast(`Sync completo: ${data.synced} filas`, 'success');
+      loadDashboard();
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
 }
 
 // ===================== ANALYSIS CHAT =====================
 
 function analyzeCampaign(campaignId) {
-  analysisConvId = null; // new conversation
+  analysisConvId = null;
   pendingAction = null;
-  document.getElementById('analysis-messages').innerHTML = '<div class="empty-state">Cargando datos de la campaña...</div>';
+  document.getElementById('analysis-messages').innerHTML = '<div class="empty-state">Cargando datos de la campana...</div>';
   document.getElementById('analysis-actions').style.display = 'none';
   showView('analyze');
-  // Auto-send initial analysis request
-  sendAnalysisMessage(`Analizá la campaña ${campaignId} y dame recomendaciones`, campaignId);
+  sendAnalysisMessage(`Analiza la campana ${campaignId} y dame recomendaciones`, campaignId);
 }
 
 async function sendAnalysis() {
@@ -434,7 +617,7 @@ async function sendAnalysisMessage(msg, campaignId = null) {
 
 async function executeAnalysisAction() {
   if (!pendingAction) return;
-  addMessage('system', 'Ejecutando acción...', 'analysis-messages');
+  addMessage('system', 'Ejecutando accion...', 'analysis-messages');
   try {
     const res = await fetch(`${API}/api/analysis/execute-action`, {
       method: 'POST', headers: headers(),
@@ -443,7 +626,7 @@ async function executeAnalysisAction() {
     const data = await res.json();
     removeLastSystem('analysis-messages');
     if (data.success) {
-      addMessage('system', 'Acción ejecutada correctamente', 'analysis-messages');
+      addMessage('system', 'Accion ejecutada correctamente', 'analysis-messages');
     } else {
       addMessage('system', `Error: ${data.error}`, 'analysis-messages');
     }
@@ -480,7 +663,7 @@ async function loadRules() {
         <div>
           <strong>${escapeHtml(r.name)}</strong>
           <span style="color:var(--text-dim);font-size:12px;margin-left:8px">
-            ${r.condition.metric} ${r.condition.operator} ${r.condition.value} → ${r.action.type}
+            ${r.condition.metric} ${r.condition.operator} ${r.condition.value} -> ${r.action.type}
           </span>
           ${r.auto_execute ? '<span style="color:var(--yellow);font-size:11px;margin-left:8px">AUTO</span>' : ''}
           ${!r.enabled ? '<span style="color:var(--text-dim);font-size:11px;margin-left:8px">DISABLED</span>' : ''}
@@ -518,42 +701,39 @@ async function loadRecommendations() {
 }
 
 async function loadOptimLogs() {
-  try {
-    const res = await fetch(`${API}/api/admin/logs`, { headers: headers() });
-    const logs = await res.json();
-    // Also fetch optimization-specific logs
-    // For now reuse campaign logs
-    const el = document.getElementById('optim-logs');
-    el.innerHTML = '<div style="color:var(--text-dim);font-size:13px">Los logs se muestran en la pestaña Logs</div>';
-  } catch (e) { console.error(e); }
+  const el = document.getElementById('optim-logs');
+  el.innerHTML = '<div style="color:var(--text-dim);font-size:13px">Los logs se muestran en la pestana Logs</div>';
 }
 
-async function createRule() {
-  const name = document.getElementById('rule-name').value.trim();
-  const metric = document.getElementById('rule-metric').value;
-  const operator = document.getElementById('rule-operator').value;
-  const value = parseFloat(document.getElementById('rule-value').value);
-  const actionType = document.getElementById('rule-action').value;
-  const autoExec = document.getElementById('rule-auto').checked;
+async function createRule(btn) {
+  await withLoading(btn, async () => {
+    const name = document.getElementById('rule-name').value.trim();
+    const metric = document.getElementById('rule-metric').value;
+    const operator = document.getElementById('rule-operator').value;
+    const value = parseFloat(document.getElementById('rule-value').value);
+    const actionType = document.getElementById('rule-action').value;
+    const autoExec = document.getElementById('rule-auto').checked;
 
-  if (!name || isNaN(value)) return alert('Nombre y valor requeridos');
+    if (!name || isNaN(value)) { showToast('Nombre y valor requeridos', 'error'); return; }
 
-  try {
-    const res = await fetch(`${API}/api/optimizer/rules`, {
-      method: 'POST', headers: headers(),
-      body: JSON.stringify({
-        name,
-        condition: { metric, operator, value },
-        action: { type: actionType },
-        auto_execute: autoExec,
-      }),
-    });
-    const data = await res.json();
-    if (data.error) return alert('Error: ' + data.error);
-    document.getElementById('rule-name').value = '';
-    document.getElementById('rule-value').value = '';
-    loadRules();
-  } catch (e) { alert('Error: ' + e.message); }
+    try {
+      const res = await fetch(`${API}/api/optimizer/rules`, {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({
+          name,
+          condition: { metric, operator, value },
+          action: { type: actionType },
+          auto_execute: autoExec,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) { showToast('Error: ' + data.error, 'error'); return; }
+      showToast('Regla creada', 'success');
+      document.getElementById('rule-name').value = '';
+      document.getElementById('rule-value').value = '';
+      loadRules();
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
 }
 
 async function toggleRule(id, enabled) {
@@ -567,9 +747,10 @@ async function toggleRule(id, enabled) {
 }
 
 async function removeRule(id) {
-  if (!confirm('Eliminar esta regla?')) return;
+  if (!await showConfirm('Eliminar esta regla?')) return;
   try {
     await fetch(`${API}/api/optimizer/rules/${id}`, { method: 'DELETE', headers: headers() });
+    showToast('Regla eliminada', 'success');
     loadRules();
   } catch (e) { console.error(e); }
 }
@@ -580,17 +761,20 @@ async function resolveRec(id, approved) {
       method: 'POST', headers: headers(),
       body: JSON.stringify({ approved }),
     });
+    showToast(approved ? 'Recomendacion aprobada' : 'Recomendacion rechazada', 'info');
     loadRecommendations();
-  } catch (e) { alert('Error: ' + e.message); }
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
 }
 
-async function evaluateRules() {
-  try {
-    const res = await fetch(`${API}/api/optimizer/evaluate`, { method: 'POST', headers: headers() });
-    const data = await res.json();
-    alert(`${data.triggered} reglas disparadas`);
-    loadRecommendations();
-  } catch (e) { alert('Error: ' + e.message); }
+async function evaluateRules(btn) {
+  await withLoading(btn, async () => {
+    try {
+      const res = await fetch(`${API}/api/optimizer/evaluate`, { method: 'POST', headers: headers() });
+      const data = await res.json();
+      showToast(`${data.triggered} reglas disparadas`, 'info');
+      loadRecommendations();
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
 }
 
 // ===================== LOGS =====================
@@ -601,13 +785,13 @@ async function loadLogs() {
     const logs = await res.json();
     const el = document.getElementById('logs-content');
     if (!logs.length) {
-      el.innerHTML = '<div class="empty-state">Sin logs todavía</div>';
+      el.innerHTML = '<div class="empty-state">Sin logs todavia</div>';
       return;
     }
     el.innerHTML = logs.map(l => `
       <div class="log-entry">
         <div class="log-header">
-          <span>${l.action} — ${formatDate(l.created_at)}</span>
+          <span>${l.action} - ${formatDate(l.created_at)}</span>
           <span class="log-status ${l.status}">${l.status}</span>
         </div>
         <details>
@@ -627,7 +811,7 @@ async function loadKnowledge() {
     const items = await res.json();
     const el = document.getElementById('knowledge-list');
     if (!items.length) {
-      el.innerHTML = '<div style="color:var(--text-dim);font-size:13px">Sin conocimiento cargado todavía</div>';
+      el.innerHTML = '<div style="color:var(--text-dim);font-size:13px">Sin conocimiento cargado todavia</div>';
       return;
     }
     el.innerHTML = items.map(k => `
@@ -645,90 +829,338 @@ async function loadKnowledge() {
   } catch (e) { console.error(e); }
 }
 
-async function addKnowledge() {
-  const category = document.getElementById('k-category').value;
-  const title = document.getElementById('k-title').value.trim();
-  const content = document.getElementById('k-content').value.trim();
-  if (!title || !content) return alert('Título y contenido requeridos');
-  try {
-    const res = await fetch(`${API}/api/knowledge`, {
-      method: 'POST', headers: headers(),
-      body: JSON.stringify({ category, title, content }),
-    });
-    const data = await res.json();
-    if (data.error) return alert('Error: ' + data.error);
-    document.getElementById('k-title').value = '';
-    document.getElementById('k-content').value = '';
-    loadKnowledge();
-  } catch (e) { alert('Error: ' + e.message); }
+async function addKnowledge(btn) {
+  await withLoading(btn, async () => {
+    const category = document.getElementById('k-category').value;
+    const title = document.getElementById('k-title').value.trim();
+    const content = document.getElementById('k-content').value.trim();
+    if (!title || !content) { showToast('Titulo y contenido requeridos', 'error'); return; }
+    try {
+      const res = await fetch(`${API}/api/knowledge`, {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ category, title, content }),
+      });
+      const data = await res.json();
+      if (data.error) { showToast('Error: ' + data.error, 'error'); return; }
+      showToast('Conocimiento agregado', 'success');
+      document.getElementById('k-title').value = '';
+      document.getElementById('k-content').value = '';
+      loadKnowledge();
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
 }
 
 async function deleteKnowledge(id) {
-  if (!confirm('Eliminar este conocimiento?')) return;
+  if (!await showConfirm('Eliminar este conocimiento?')) return;
   try {
     await fetch(`${API}/api/knowledge/${id}`, { method: 'DELETE', headers: headers() });
+    showToast('Conocimiento eliminado', 'success');
     loadKnowledge();
   } catch (e) { console.error(e); }
+}
+
+// ===================== KEYWORDS =====================
+
+let lastKeywordResults = [];
+
+async function searchKeywords(btn) {
+  await withLoading(btn, async () => {
+    const seedsRaw = document.getElementById('kw-seeds').value.trim();
+    const url = document.getElementById('kw-url').value.trim();
+    const geo = document.getElementById('kw-geo').value;
+    const language = document.getElementById('kw-lang').value;
+
+    const keywords = seedsRaw.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!keywords.length && !url) {
+      showToast('Ingresa al menos una keyword o URL', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/api/keywords/ideas`, {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ keywords, url: url || undefined, geo, language }),
+      });
+      const data = await res.json();
+      if (data.error) { showToast('Error: ' + data.error, 'error'); return; }
+      lastKeywordResults = data;
+      renderKeywordResults(data);
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
+}
+
+function renderKeywordResults(ideas) {
+  const section = document.getElementById('kw-results-section');
+  const el = document.getElementById('kw-results');
+
+  if (!ideas.length) {
+    section.style.display = 'block';
+    el.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:8px">Sin resultados</div>';
+    return;
+  }
+
+  const micro = (v) => `$${(Number(v) / 1_000_000).toFixed(2)}`;
+  const compLabel = { LOW: 'Baja', MEDIUM: 'Media', HIGH: 'Alta', UNSPECIFIED: '-' };
+
+  let html = `<table class="kw-table">
+    <thead><tr>
+      <th style="width:32px"><input type="checkbox" onchange="toggleAllKeywords(this)"></th>
+      <th>Keyword</th>
+      <th>Vol. mensual</th>
+      <th>Competencia</th>
+      <th>Idx</th>
+      <th>CPC bajo</th>
+      <th>CPC alto</th>
+    </tr></thead><tbody>`;
+
+  for (let i = 0; i < ideas.length; i++) {
+    const r = ideas[i];
+    html += `<tr>
+      <td><input type="checkbox" class="kw-check" data-idx="${i}"></td>
+      <td>${escapeHtml(r.keyword)}</td>
+      <td style="text-align:right">${r.avg_monthly_searches.toLocaleString()}</td>
+      <td>${compLabel[r.competition] || r.competition}</td>
+      <td style="text-align:right">${r.competition_index}</td>
+      <td style="text-align:right">${micro(r.low_cpc_micros)}</td>
+      <td style="text-align:right">${micro(r.high_cpc_micros)}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+
+  section.style.display = 'block';
+  el.innerHTML = html;
+}
+
+function toggleAllKeywords(master) {
+  document.querySelectorAll('.kw-check').forEach(cb => cb.checked = master.checked);
+}
+
+function copySelectedKeywords() {
+  const checked = document.querySelectorAll('.kw-check:checked');
+  if (!checked.length) { showToast('Selecciona al menos una keyword', 'error'); return; }
+  const selected = Array.from(checked).map(cb => lastKeywordResults[cb.dataset.idx].keyword);
+  navigator.clipboard.writeText(selected.join('\n'))
+    .then(() => showToast(`${selected.length} keywords copiadas`, 'success'))
+    .catch(() => showToast('No se pudo copiar al clipboard', 'error'));
 }
 
 // ===================== ADMIN =====================
 
 async function loadSettings() {
+  // Show admin-only sections
+  const platformSection = document.getElementById('admin-platform-section');
+  if (platformSection) {
+    platformSection.style.display = isAdmin() ? 'block' : 'none';
+  }
+
   try {
     const res = await fetch(`${API}/api/admin/settings`, { headers: headers() });
     const s = await res.json();
-    document.getElementById('s-llm-provider').value = s.llm_provider || 'openai';
-    document.getElementById('s-llm-api-key').value = s.llm_api_key || '';
-    document.getElementById('s-llm-model').value = s.llm_model || 'gpt-4o-mini';
-    document.getElementById('s-openrouter-api-key').value = s.openrouter_api_key || '';
-    document.getElementById('s-openrouter-model').value = s.openrouter_model || 'openai/gpt-4o-mini';
-    // Google Ads
+
+    // Per-user settings
     document.getElementById('s-gads-client-id').value = s.gads_client_id || '';
     document.getElementById('s-gads-client-secret').value = s.gads_client_secret || '';
     document.getElementById('s-gads-dev-token').value = s.gads_dev_token || '';
     document.getElementById('s-gads-refresh-token').value = s.gads_refresh_token || '';
     document.getElementById('s-gads-customer-id').value = s.gads_customer_id || '';
     document.getElementById('s-gads-login-customer-id').value = s.gads_login_customer_id || '';
+    document.getElementById('s-business-context').value = s.business_context || '';
+
+    // Global settings (admin only)
+    if (isAdmin()) {
+      document.getElementById('s-llm-provider').value = s.llm_provider || 'openai';
+      document.getElementById('s-llm-api-key').value = s.llm_api_key || '';
+      document.getElementById('s-llm-model').value = s.llm_model || 'gpt-4o-mini';
+      document.getElementById('s-openrouter-api-key').value = s.openrouter_api_key || '';
+      document.getElementById('s-openrouter-model').value = s.openrouter_model || 'openai/gpt-4o-mini';
+      document.getElementById('s-master-prompt').value = s.master_prompt || '';
+
+      loadUsers();
+      loadUsage();
+    }
   } catch (e) { console.error(e); }
 }
 
-async function saveSettings() {
-  try {
-    const settings = {
-      llm_provider: document.getElementById('s-llm-provider').value,
-      llm_api_key: document.getElementById('s-llm-api-key').value,
-      llm_model: document.getElementById('s-llm-model').value,
-      openrouter_api_key: document.getElementById('s-openrouter-api-key').value,
-      openrouter_model: document.getElementById('s-openrouter-model').value,
-    };
-    const res = await fetch(`${API}/api/admin/settings`, {
-      method: 'PUT', headers: headers(),
-      body: JSON.stringify(settings),
-    });
-    const data = await res.json();
-    if (data.ok) alert('Settings guardados');
-    else alert('Error: ' + (data.error || 'unknown'));
-  } catch (e) { alert('Error: ' + e.message); }
+async function saveGoogleAds(btn) {
+  await withLoading(btn, async () => {
+    try {
+      const settings = {
+        gads_client_id: document.getElementById('s-gads-client-id').value,
+        gads_client_secret: document.getElementById('s-gads-client-secret').value,
+        gads_dev_token: document.getElementById('s-gads-dev-token').value,
+        gads_refresh_token: document.getElementById('s-gads-refresh-token').value,
+        gads_customer_id: document.getElementById('s-gads-customer-id').value,
+        gads_login_customer_id: document.getElementById('s-gads-login-customer-id').value,
+      };
+      const res = await fetch(`${API}/api/admin/settings`, {
+        method: 'PUT', headers: headers(),
+        body: JSON.stringify(settings),
+      });
+      const data = await res.json();
+      if (data.ok) showToast('Google Ads guardado', 'success');
+      else showToast('Error: ' + (data.error || 'unknown'), 'error');
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
 }
 
-async function saveGoogleAds() {
+async function saveBusinessContext(btn) {
+  await withLoading(btn, async () => {
+    try {
+      const res = await fetch(`${API}/api/admin/settings`, {
+        method: 'PUT', headers: headers(),
+        body: JSON.stringify({ business_context: document.getElementById('s-business-context').value }),
+      });
+      const data = await res.json();
+      if (data.ok) showToast('Detalles del negocio guardados', 'success');
+      else showToast('Error: ' + (data.error || 'unknown'), 'error');
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
+}
+
+async function saveLLMSettings(btn) {
+  await withLoading(btn, async () => {
+    try {
+      const settings = {
+        llm_provider: document.getElementById('s-llm-provider').value,
+        llm_api_key: document.getElementById('s-llm-api-key').value,
+        llm_model: document.getElementById('s-llm-model').value,
+        openrouter_api_key: document.getElementById('s-openrouter-api-key').value,
+        openrouter_model: document.getElementById('s-openrouter-model').value,
+      };
+      const res = await fetch(`${API}/api/admin/settings/global`, {
+        method: 'PUT', headers: headers(),
+        body: JSON.stringify(settings),
+      });
+      const data = await res.json();
+      if (data.ok) showToast('LLM settings guardados', 'success');
+      else showToast('Error: ' + (data.error || 'unknown'), 'error');
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
+}
+
+async function saveMasterPrompt(btn) {
+  await withLoading(btn, async () => {
+    try {
+      const res = await fetch(`${API}/api/admin/settings/global`, {
+        method: 'PUT', headers: headers(),
+        body: JSON.stringify({ master_prompt: document.getElementById('s-master-prompt').value }),
+      });
+      const data = await res.json();
+      if (data.ok) showToast('Master prompt guardado', 'success');
+      else showToast('Error: ' + (data.error || 'unknown'), 'error');
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
+}
+
+// ===================== USER MANAGEMENT (admin) =====================
+
+async function loadUsers() {
   try {
-    const settings = {
-      gads_client_id: document.getElementById('s-gads-client-id').value,
-      gads_client_secret: document.getElementById('s-gads-client-secret').value,
-      gads_dev_token: document.getElementById('s-gads-dev-token').value,
-      gads_refresh_token: document.getElementById('s-gads-refresh-token').value,
-      gads_customer_id: document.getElementById('s-gads-customer-id').value,
-      gads_login_customer_id: document.getElementById('s-gads-login-customer-id').value,
-    };
-    const res = await fetch(`${API}/api/admin/settings`, {
+    const res = await fetch(`${API}/api/admin/users`, { headers: headers() });
+    const users = await res.json();
+    const el = document.getElementById('users-list');
+    if (!users.length) {
+      el.innerHTML = '<div style="color:var(--text-dim);font-size:13px">Sin usuarios</div>';
+      return;
+    }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="border-bottom:1px solid var(--border);text-align:left">
+        <th style="padding:8px">Email</th>
+        <th style="padding:8px">Nombre</th>
+        <th style="padding:8px">Rol</th>
+        <th style="padding:8px">Limite USD/mes</th>
+        <th style="padding:8px">Consumo mes</th>
+        <th style="padding:8px">Estado</th>
+        <th style="padding:8px"></th>
+      </tr></thead><tbody>` +
+      users.map(u => `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px">${escapeHtml(u.email)}</td>
+        <td style="padding:8px">${escapeHtml(u.name || '-')}</td>
+        <td style="padding:8px">${u.role}</td>
+        <td style="padding:8px">
+          <input type="number" value="${u.llm_monthly_limit_usd}" step="1" min="0" style="width:70px;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);font-size:12px"
+            onchange="updateUserLimit('${u.id}', this.value)">
+        </td>
+        <td style="padding:8px">$${u.llm_usage_this_month_usd}</td>
+        <td style="padding:8px">${u.enabled ? '<span style="color:var(--green)">Activo</span>' : '<span style="color:var(--red)">Deshabilitado</span>'}</td>
+        <td style="padding:8px">
+          ${u.role !== 'admin' ? `<button onclick="toggleUserEnabled('${u.id}', ${!u.enabled})" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">${u.enabled ? 'Deshabilitar' : 'Habilitar'}</button>` : ''}
+        </td>
+      </tr>`).join('') +
+      '</tbody></table>';
+  } catch (e) { console.error(e); }
+}
+
+async function createUser(btn) {
+  await withLoading(btn, async () => {
+    const email = document.getElementById('new-user-email').value.trim();
+    const name = document.getElementById('new-user-name').value.trim();
+    const password = document.getElementById('new-user-password').value;
+    if (!email || !password) { showToast('Email y password requeridos', 'error'); return; }
+    if (password.length < 6) { showToast('Password min 6 caracteres', 'error'); return; }
+
+    try {
+      const res = await fetch(`${API}/api/admin/users`, {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ email, password, name }),
+      });
+      const data = await res.json();
+      if (data.error) { showToast('Error: ' + data.error, 'error'); return; }
+      showToast('Usuario creado', 'success');
+      document.getElementById('new-user-email').value = '';
+      document.getElementById('new-user-name').value = '';
+      document.getElementById('new-user-password').value = '';
+      loadUsers();
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
+  });
+}
+
+async function toggleUserEnabled(id, enabled) {
+  try {
+    await fetch(`${API}/api/admin/users/${id}`, {
       method: 'PUT', headers: headers(),
-      body: JSON.stringify(settings),
+      body: JSON.stringify({ enabled }),
     });
+    loadUsers();
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function updateUserLimit(id, limit) {
+  try {
+    await fetch(`${API}/api/admin/users/${id}`, {
+      method: 'PUT', headers: headers(),
+      body: JSON.stringify({ llm_monthly_limit_usd: parseFloat(limit) }),
+    });
+    showToast('Limite actualizado', 'success');
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function loadUsage() {
+  try {
+    const res = await fetch(`${API}/api/admin/usage`, { headers: headers() });
     const data = await res.json();
-    if (data.ok) alert('Google Ads settings guardados. Reiniciá el server para aplicar.');
-    else alert('Error: ' + (data.error || 'unknown'));
-  } catch (e) { alert('Error: ' + e.message); }
+    const el = document.getElementById('usage-content');
+    if (!data.length) {
+      el.innerHTML = '<div style="color:var(--text-dim);font-size:13px">Sin consumo este mes</div>';
+      return;
+    }
+
+    // Aggregate by user
+    const byUser = {};
+    for (const row of data) {
+      if (!byUser[row.user_id]) byUser[row.user_id] = { tokens: 0, cost: 0, calls: 0 };
+      byUser[row.user_id].tokens += row.total_tokens;
+      byUser[row.user_id].cost += Number(row.estimated_cost_usd);
+      byUser[row.user_id].calls++;
+    }
+
+    el.innerHTML = Object.entries(byUser).map(([uid, stats]) => `
+      <div class="log-entry" style="display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--text-dim)">${uid.slice(0, 8)}...</span>
+        <span>${stats.calls} calls | ${stats.tokens.toLocaleString()} tokens | $${stats.cost.toFixed(4)}</span>
+      </div>
+    `).join('');
+  } catch (e) { console.error(e); }
 }
 
 // ===================== DOCS =====================
@@ -742,17 +1174,9 @@ function renderDocs() {
       <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-bottom:20px">
         <h3 style="margin-bottom:8px;color:var(--accent)">Setup inicial</h3>
         <ol style="padding-left:20px;line-height:1.8;color:var(--text-dim)">
-          <li>Ir a <strong>Admin</strong> y configurar un LLM provider (OpenAI directo u OpenRouter) con su API key y modelo.</li>
-          <li>Para crear campanas reales en Google Ads, configurar las credenciales en la seccion <strong>Google Ads API</strong> del Admin:
-            <ul style="margin-top:4px;padding-left:16px">
-              <li>Crear proyecto en <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">Google Cloud Console</a></li>
-              <li>Habilitar la Google Ads API</li>
-              <li>Crear credenciales OAuth2 (tipo Desktop App)</li>
-              <li>Obtener el Developer Token desde la cuenta de Google Ads (Herramientas > Centro de API)</li>
-              <li>Generar un Refresh Token corriendo el flujo OAuth2</li>
-              <li>Poner el Customer ID de tu cuenta (sin guiones)</li>
-            </ul>
-          </li>
+          <li>Hacer click en "Primer uso? Crear admin" en la pantalla de login para crear la cuenta admin.</li>
+          <li>Ir a <strong>Admin > Plataforma</strong> y configurar un LLM provider (OpenAI directo u OpenRouter) con su API key y modelo.</li>
+          <li>Configurar las credenciales de <strong>Google Ads</strong> en la seccion "Mi cuenta" del Admin.</li>
           <li>Sin Google Ads configurado, AdPilot igual funciona como copiloto: genera estructuras de campana que podes crear manualmente.</li>
         </ol>
       </div>
@@ -761,97 +1185,27 @@ function renderDocs() {
 
       <div style="display:grid;gap:12px">
         <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Chat — Crear campanas</h4>
+          <h4 style="margin-bottom:6px">Chat - Crear campanas</h4>
           <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Describis lo que necesitas en lenguaje natural: <em>"Quiero una campana de Search para mi SaaS, objetivo leads a $5 CPA, budget $50/dia"</em>.
-            El agente te pregunta lo que falta (keywords, landing page, geo, idioma), genera la estructura completa de campana en JSON,
-            y te la muestra para que revises. Podes pedir cambios cuantas veces quieras. Cuando estas conforme, apretas
-            <strong>Aprobar y ejecutar</strong> y se crea la campana en Google Ads (pausada, para que la revises antes de activar).
-          </p>
-          <p style="color:var(--text-dim);font-size:13px;margin-top:8px">
-            <strong>Estados:</strong> Intake (descripcion inicial) → Clarificacion (preguntas) → Revision (estructura generada) → Confirmado → Ejecutando → Listo.
+            Describis lo que necesitas en lenguaje natural. El agente te pregunta lo que falta, genera la estructura completa de campana en JSON,
+            y te la muestra para que revises. Cuando estas conforme, apretas <strong>Aprobar y ejecutar</strong> y se crea la campana en Google Ads (pausada).
           </p>
         </div>
 
         <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Dashboard — Metricas</h4>
+          <h4 style="margin-bottom:6px">Dashboard - Metricas</h4>
           <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Muestra KPIs globales (spend, clicks, conversiones, CPA, CTR) y un grafico de tendencia diaria.
-            Abajo, tabla con todas las campanas y sus metricas a 7 o 30 dias. Las campanas con alertas
-            (CPA spike, CTR drop, sin conversiones, ROAS bajo) se marcan automaticamente.
-            Boton <strong>Sync ahora</strong> para forzar sincronizacion con Google Ads (el sync automatico corre cada hora).
-            Desde la tabla, boton <strong>Analizar</strong> para abrir el chat de analisis sobre esa campana.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Analizar — Chat sobre campanas existentes</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Chat con el LLM que tiene inyectadas todas las metricas reales de tus campanas.
-            Podes preguntar cosas como:
-          </p>
-          <ul style="color:var(--text-dim);font-size:13px;padding-left:20px;margin-top:4px;line-height:1.8">
-            <li><em>"Como van mis campanas esta semana?"</em></li>
-            <li><em>"Que campana deberia pausar?"</em></li>
-            <li><em>"El CPA de [campana X] subio mucho, que hago?"</em></li>
-            <li><em>"Pausa la campana Y"</em> — genera una accion ejecutable</li>
-            <li><em>"Subi el budget de Z a $100/dia"</em></li>
-          </ul>
-          <p style="color:var(--text-dim);font-size:13px;margin-top:8px">
-            Cuando el LLM sugiere una accion concreta, aparecen botones <strong>Ejecutar accion</strong> / <strong>Ignorar</strong>.
-            Si aprob&aacute;s, se ejecuta directo en Google Ads.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Reglas — Optimizacion automatica</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Definis reglas tipo: <em>"Si CPA 7d > $10 → pausar campana"</em>. Cada regla tiene:
-          </p>
-          <ul style="color:var(--text-dim);font-size:13px;padding-left:20px;margin-top:4px;line-height:1.8">
-            <li><strong>Metrica:</strong> CPA, CTR, ROAS, conversiones, spend (a 7d o 30d)</li>
-            <li><strong>Operador:</strong> mayor/menor que un valor</li>
-            <li><strong>Accion:</strong> alertar, pausar campana, activar campana</li>
-            <li><strong>Auto-ejecutar:</strong> si esta activado, se ejecuta sin pedir aprobacion</li>
-          </ul>
-          <p style="color:var(--text-dim);font-size:13px;margin-top:8px">
-            Boton <strong>Evaluar reglas ahora</strong> para chequear todas las campanas contra tus reglas.
-            Las que disparan aparecen como recomendaciones pendientes que podes aprobar o rechazar.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Knowledge — Base de conocimiento (RAG)</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            El agente aprende de dos formas:
-          </p>
-          <ul style="color:var(--text-dim);font-size:13px;padding-left:20px;margin-top:4px;line-height:1.8">
-            <li><strong>Automatico:</strong> cada campana que se crea exitosamente se guarda como conocimiento, incluyendo las correcciones que hiciste durante la conversacion.</li>
-            <li><strong>Manual:</strong> podes cargar best practices, tips de optimizacion, preferencias personales, o resultados de campanas.</li>
-          </ul>
-          <p style="color:var(--text-dim);font-size:13px;margin-top:8px">
-            Este conocimiento se busca por similitud semantica (embeddings + pgvector) y se inyecta al LLM en cada conversacion.
-            Cuanto mas cargues, mejores sugerencias te da.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Logs</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Historial de todas las ejecuciones: campanas creadas, optimizaciones ejecutadas, errores.
-            Cada entrada tiene el payload completo expandible para debugging.
+            KPIs globales (spend, clicks, conversiones, CPA, CTR) y grafico de tendencia diaria.
+            Tabla con todas las campanas y sus metricas. Boton <strong>Sync ahora</strong> para forzar sincronizacion.
           </p>
         </div>
 
         <div style="background:var(--surface2);border-radius:8px;padding:16px">
           <h4 style="margin-bottom:6px">Admin</h4>
           <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Configuracion del sistema:
+            <strong>Mi cuenta:</strong> Credenciales de Google Ads y detalles del negocio (se inyectan al LLM).<br>
+            <strong>Plataforma (admin):</strong> LLM provider, master prompt global, gestion de usuarios y consumo.
           </p>
-          <ul style="color:var(--text-dim);font-size:13px;padding-left:20px;margin-top:4px;line-height:1.8">
-            <li><strong>LLM Provider:</strong> elegir entre OpenAI directo u OpenRouter, modelo, y API key. Los cambios aplican inmediatamente.</li>
-            <li><strong>Google Ads API:</strong> Client ID, Client Secret, Developer Token, Refresh Token, Customer ID. Necesarios para crear/modificar campanas y sincronizar metricas.</li>
-          </ul>
         </div>
       </div>
 
@@ -859,6 +1213,7 @@ function renderDocs() {
         <strong>Stack:</strong> Node.js (Express) + Supabase (PostgreSQL + pgvector) + Chart.js<br>
         <strong>LLM:</strong> Configurable (OpenAI / OpenRouter / cualquier provider compatible)<br>
         <strong>API:</strong> Google Ads API v18<br>
+        <strong>Auth:</strong> JWT (bcrypt + jsonwebtoken)<br>
         <strong>Hosting:</strong> Raspberry Pi 5 via Cloudflare Tunnel
       </div>
     </div>
@@ -891,6 +1246,3 @@ for (const ta of document.querySelectorAll('textarea')) {
     this.style.height = Math.min(this.scrollHeight, 120) + 'px';
   });
 }
-
-// Init
-loadConversations();

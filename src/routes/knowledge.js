@@ -4,7 +4,6 @@ const { errorResponse } = require('../services/errors');
 
 const router = Router();
 
-// Buscar conocimiento relevante
 router.get('/search', async (req, res) => {
   try {
     const { q, category, count } = req.query;
@@ -12,6 +11,7 @@ router.get('/search', async (req, res) => {
     const results = await knowledge.search(q, {
       count: parseInt(count || '5', 10),
       category: category || null,
+      userId: req.user.id,
     });
     res.json(results);
   } catch (err) {
@@ -19,13 +19,13 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// Listar conocimiento
 router.get('/', async (req, res) => {
   try {
     const { category, limit } = req.query;
     const results = await knowledge.list({
       category: category || null,
       limit: parseInt(limit || '50', 10),
+      userId: req.user.id,
     });
     res.json(results);
   } catch (err) {
@@ -33,24 +33,22 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Agregar conocimiento manualmente
 router.post('/', async (req, res) => {
   try {
     const { category, title, content, metadata } = req.body;
     if (!category || !title || !content) {
       return res.status(400).json({ error: 'category, title, and content required' });
     }
-    const result = await knowledge.add({ category, title, content, metadata });
+    const result = await knowledge.add({ category, title, content, metadata, userId: req.user.id });
     res.json(result);
   } catch (err) {
     errorResponse(res, err);
   }
 });
 
-// Eliminar conocimiento
 router.delete('/:id', async (req, res) => {
   try {
-    await knowledge.remove(req.params.id);
+    await knowledge.remove(req.params.id, req.user.id);
     res.json({ ok: true });
   } catch (err) {
     errorResponse(res, err);

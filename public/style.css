@@ -37,6 +37,7 @@ header h1 {
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.3px;
+  flex-shrink: 0;
 }
 
 header h1 span { color: var(--accent); }
@@ -67,6 +68,16 @@ header h1 span { color: var(--accent); }
   background: var(--accent);
   border-color: var(--accent);
   color: white;
+}
+
+.btn-logout {
+  background: transparent !important;
+  border-color: var(--red) !important;
+  color: var(--red) !important;
+}
+
+.btn-logout:hover {
+  background: rgba(239,68,68,0.15) !important;
 }
 
 /* Layout */
@@ -406,6 +417,32 @@ header h1 span { color: var(--accent); }
 .log-status.started { background: rgba(234,179,8,0.15); color: var(--yellow); }
 .log-status.partial { background: rgba(234,179,8,0.15); color: var(--yellow); }
 
+/* Keywords table */
+.kw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.kw-table th, .kw-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.kw-table thead tr {
+  border-bottom: 2px solid var(--border);
+}
+
+.kw-table tbody tr:hover {
+  background: var(--surface2);
+}
+
+.kw-table input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 /* Empty state */
 .empty-state {
   flex: 1;
@@ -417,6 +454,11 @@ header h1 span { color: var(--accent); }
 }
 
 /* Loading */
+.loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
 .loading::after {
   content: '';
   display: inline-block;
@@ -441,3 +483,271 @@ header h1 span { color: var(--accent); }
 }
 
 .message strong { font-weight: 600; }
+
+/* ===================== LOGIN SCREEN ===================== */
+
+.login-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  z-index: 1000;
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 40px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+
+.login-card h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.login-card h1 span { color: var(--accent); }
+
+.login-card p {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.login-card input::placeholder { color: var(--text-dim); }
+
+.login-card button {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.login-card button:hover { background: var(--accent-hover); }
+
+.login-error {
+  color: var(--red);
+  font-size: 13px;
+  margin-top: 8px;
+  min-height: 20px;
+}
+
+/* ===================== TOAST SYSTEM ===================== */
+
+#toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: auto;
+  max-width: 360px;
+  word-break: break-word;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast-success {
+  background: rgba(34,197,94,0.15);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.toast-error {
+  background: rgba(239,68,68,0.15);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.toast-info {
+  background: rgba(59,130,246,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ===================== CONFIRM MODAL ===================== */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.confirm-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.confirm-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+}
+
+.confirm-card p {
+  font-size: 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.confirm-cancel {
+  padding: 8px 16px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.confirm-cancel:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.confirm-ok {
+  padding: 8px 16px;
+  background: var(--red);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.confirm-ok:hover {
+  background: #dc2626;
+}
+
+/* ===================== MOBILE RESPONSIVE ===================== */
+
+@media (max-width: 768px) {
+  header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .header-actions {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    width: 100%;
+  }
+
+  .header-actions::-webkit-scrollbar { display: none; }
+
+  .header-actions button {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  .sidebar {
+    display: none !important;
+  }
+
+  .message {
+    max-width: 95%;
+  }
+
+  .messages {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .input-area {
+    padding: 10px 12px;
+  }
+
+  .admin-panel, .logs-panel {
+    padding: 12px;
+  }
+
+  .admin-section {
+    padding: 14px;
+  }
+
+  #kpi-cards {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+  }
+
+  .login-card {
+    margin: 16px;
+    padding: 28px;
+  }
+
+  #toast-container {
+    left: 16px;
+    right: 16px;
+  }
+
+  .toast {
+    max-width: 100%;
+  }
+}

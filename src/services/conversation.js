@@ -17,30 +17,32 @@ async function withLock(conversationId, fn) {
   }
 }
 
-async function create() {
+async function create(userId) {
   const { data, error } = await supabase
     .from('adpilot_conversations')
-    .insert({ state: 'intake', messages: [] })
+    .insert({ state: 'intake', messages: [], user_id: userId })
     .select('id, state, messages, created_at')
     .single();
   if (error) throw error;
   return data;
 }
 
-async function get(id) {
-  const { data, error } = await supabase
+async function get(id, userId) {
+  let query = supabase
     .from('adpilot_conversations')
     .select('*')
-    .eq('id', id)
-    .single();
+    .eq('id', id);
+  if (userId) query = query.eq('user_id', userId);
+  const { data, error } = await query.single();
   if (error) throw error;
   return data;
 }
 
-async function list(limit = 20) {
+async function list(userId, limit = 20) {
   const { data, error } = await supabase
     .from('adpilot_conversations')
     .select('id, state, created_at, updated_at')
+    .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
@@ -50,9 +52,9 @@ async function list(limit = 20) {
 /**
  * Procesa un mensaje del usuario — con lock por conversación
  */
-async function processMessage(conversationId, userMessage) {
+async function processMessage(conversationId, userMessage, userId) {
   return withLock(conversationId, async () => {
-    const conv = await get(conversationId);
+    const conv = await get(conversationId, userId);
     if (!conv) throw new Error('Conversation not found');
 
     const blockedStates = ['done', 'executing', 'error'];
@@ -60,7 +62,6 @@ async function processMessage(conversationId, userMessage) {
       throw new Error(`Conversation is in "${conv.state}" state`);
     }
 
-    // Sanitizar input
     const sanitized = llm.sanitizeInput(userMessage);
     if (!sanitized) throw new Error('Empty message');
 
@@ -80,14 +81,14 @@ async function processMessage(conversationId, userMessage) {
     // RAG (opcional, no bloquea)
     let ragContext = [];
     try {
-      ragContext = await knowledge.search(sanitized, { count: 3 });
+      ragContext = await knowledge.search(sanitized, { count: 3, userId });
     } catch (e) {
       console.warn('RAG search failed:', e.message);
     }
 
     // Llamar al LLM
     const llmMessages = messages.map(m => ({ role: m.role, content: m.content }));
-    const assistantResponse = await llm.chat(llmMessages, { ragContext });
+    const assistantResponse = await llm.chat(llmMessages, { ragContext, userId });
 
     const newState = llm.detectStateTransition(assistantResponse, conv.state);
     const campaignJson = llm.extractCampaignJson(assistantResponse);

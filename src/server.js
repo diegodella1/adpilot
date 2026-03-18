@@ -1,16 +1,17 @@
 const express = require('express');
-const crypto = require('crypto');
 const cors = require('cors');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const config = require('./config');
+const { authMiddleware, adminOnly } = require('./middleware/auth');
+const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chat');
 const adminRoutes = require('./routes/admin');
 const knowledgeRoutes = require('./routes/knowledge');
 const dashboardRoutes = require('./routes/dashboard');
 const optimizerRoutes = require('./routes/optimizer');
 const analysisChatRoutes = require('./routes/analysis-chat');
-const metrics = require('./services/metrics');
+const keywordsRoutes = require('./routes/keywords');
 
 const app = express();
 
@@ -49,22 +50,16 @@ const llmLimiter = rateLimit({
   message: { error: 'Too many LLM requests. Wait a moment.' },
 });
 
-// Auth middleware — timing-safe comparison
-app.use('/api', (req, res, next) => {
-  if (!config.adminToken) return next(); // dev mode sin token
-  const token = req.headers.authorization?.replace('Bearer ', '') || '';
-  const expected = config.adminToken;
-  if (token.length === expected.length &&
-      crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected))) {
-    return next();
-  }
-  res.status(401).json({ error: 'Unauthorized' });
-});
-
 // Health check (no auth)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
+
+// Auth routes — ANTES del auth middleware (login/setup son públicos)
+app.use('/api/auth', authRoutes);
+
+// JWT auth middleware — protege todas las rutas /api excepto /api/auth
+app.use('/api', authMiddleware);
 
 // API routes
 app.use('/api', chatRoutes);
@@ -73,6 +68,7 @@ app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/optimizer', optimizerRoutes);
 app.use('/api/analysis', analysisChatRoutes);
+app.use('/api/keywords', keywordsRoutes);
 
 // Aplicar rate limit LLM a endpoints que llaman al modelo
 app.use('/api/conversations/:id/messages', llmLimiter);
@@ -96,7 +92,6 @@ app.use((err, req, res, _next) => {
 let server;
 function shutdown(signal) {
   console.log(`${signal} received, shutting down gracefully...`);
-  metrics.stopPeriodicSync();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);
@@ -116,7 +111,6 @@ process.on('uncaughtException', (err) => {
 
 server = app.listen(config.port, () => {
   console.log(`AdPilot running on port ${config.port}`);
-  metrics.startPeriodicSync(3600_000);
 });
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));

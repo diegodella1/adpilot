@@ -4,11 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AdPilot</title>
-  <link rel="stylesheet" href="/style.css?v=2">
+  <link rel="stylesheet" href="/style.css?v=4">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <header>
+  <!-- Login screen -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <h1>Ad<span>Pilot</span></h1>
+      <p id="login-subtitle">Inicia sesion</p>
+      <input type="email" id="login-email" placeholder="Email" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+      <input type="password" id="login-password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+      <input type="text" id="setup-name" placeholder="Nombre (solo setup inicial)" style="display:none">
+      <button id="login-btn" onclick="doLogin()">Entrar</button>
+      <button id="setup-btn" onclick="doSetup()" style="display:none">Crear admin</button>
+      <div id="login-error" class="login-error"></div>
+      <a id="setup-link" href="#" onclick="toggleSetupMode()" style="font-size:12px;color:var(--accent);margin-top:8px;display:inline-block">Primer uso? Crear admin</a>
+    </div>
+  </div>
+
+  <header id="main-header" style="display:none">
     <h1>Ad<span>Pilot</span></h1>
     <div class="header-actions">
       <button id="btn-chat" class="active" onclick="showView('chat')">Chat</button>
@@ -17,16 +32,19 @@
       <button id="btn-optimizer" onclick="showView('optimizer')">Reglas</button>
       <button id="btn-logs" onclick="showView('logs')">Logs</button>
       <button id="btn-knowledge" onclick="showView('knowledge')">Knowledge</button>
+      <button id="btn-keywords" onclick="showView('keywords')">Keywords</button>
       <button id="btn-admin" onclick="showView('admin')">Admin</button>
       <button id="btn-docs" onclick="showView('docs')">Docs</button>
+      <span id="user-display" style="color:var(--text-dim);font-size:12px;margin-left:8px"></span>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
     </div>
   </header>
 
-  <div class="app">
+  <div class="app" id="main-app" style="display:none">
     <!-- Sidebar -->
     <div class="sidebar">
       <div class="sidebar-header">
-        <button onclick="newConversation()">+ Nueva campaña</button>
+        <button onclick="newConversation()">+ Nueva campana</button>
       </div>
       <div class="conversation-list" id="conv-list"></div>
     </div>
@@ -38,14 +56,14 @@
         <span id="state-text"></span>
       </div>
       <div class="messages" id="messages">
-        <div class="empty-state">Creá una nueva conversación para empezar</div>
+        <div class="empty-state">Crea una nueva conversacion para empezar</div>
       </div>
       <div class="action-buttons" id="action-buttons" style="display:none">
         <button class="btn-approve" onclick="approveAndExecute()">Aprobar y ejecutar</button>
         <button class="btn-cancel" onclick="sendMessage('Cancelar, quiero hacer cambios')">Editar</button>
       </div>
       <div class="input-area">
-        <textarea id="input" placeholder="Describí tu campaña..." rows="1"
+        <textarea id="input" placeholder="Describi tu campana..." rows="1"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
         <button id="send-btn" onclick="send()">Enviar</button>
       </div>
@@ -53,33 +71,25 @@
 
     <!-- Dashboard view -->
     <div class="admin-panel" id="view-dashboard">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2 style="font-size:18px">Dashboard de Métricas</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <h2 style="font-size:18px">Dashboard de Metricas</h2>
         <div style="display:flex;gap:8px">
           <select id="dash-period" onchange="loadDashboard()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px">
-            <option value="7">7 días</option>
-            <option value="30" selected>30 días</option>
-            <option value="90">90 días</option>
+            <option value="7">7 dias</option>
+            <option value="30" selected>30 dias</option>
+            <option value="90">90 dias</option>
           </select>
-          <button onclick="syncMetrics()" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text-dim);cursor:pointer;font-size:13px">Sync ahora</button>
+          <button onclick="syncMetrics(this)" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text-dim);cursor:pointer;font-size:13px">Sync ahora</button>
         </div>
       </div>
-
-      <!-- KPI cards -->
       <div id="kpi-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px"></div>
-
-      <!-- Chart -->
       <div class="admin-section" style="padding:16px">
         <canvas id="global-chart" height="200"></canvas>
       </div>
-
-      <!-- Campaign table -->
       <div class="admin-section">
-        <h3>Campañas</h3>
+        <h3>Campanas</h3>
         <div id="campaigns-table" style="overflow-x:auto"></div>
       </div>
-
-      <!-- Alerts -->
       <div class="admin-section" id="alerts-section" style="display:none">
         <h3 style="color:var(--red)">Alertas</h3>
         <div id="alerts-content"></div>
@@ -90,17 +100,17 @@
     <div class="chat-area" id="view-analyze" style="display:none">
       <div class="state-bar" style="display:flex">
         <div class="state-dot" style="background:var(--accent)"></div>
-        <span>Modo análisis — preguntá sobre tus campañas</span>
+        <span>Modo analisis — pregunta sobre tus campanas</span>
       </div>
       <div class="messages" id="analysis-messages">
-        <div class="empty-state">Preguntá sobre el rendimiento de tus campañas, pedí recomendaciones, o dá órdenes de optimización</div>
+        <div class="empty-state">Pregunta sobre el rendimiento de tus campanas, pedi recomendaciones, o da ordenes de optimizacion</div>
       </div>
       <div class="action-buttons" id="analysis-actions" style="display:none">
-        <button class="btn-approve" onclick="executeAnalysisAction()">Ejecutar acción</button>
+        <button class="btn-approve" onclick="executeAnalysisAction()">Ejecutar accion</button>
         <button class="btn-cancel" onclick="dismissAnalysisAction()">Ignorar</button>
       </div>
       <div class="input-area">
-        <textarea id="analysis-input" placeholder="Ej: ¿Cómo van mis campañas? ¿Qué debería optimizar?" rows="1"
+        <textarea id="analysis-input" placeholder="Ej: Como van mis campanas? Que deberia optimizar?" rows="1"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAnalysis()}"></textarea>
         <button onclick="sendAnalysis()">Enviar</button>
       </div>
@@ -108,18 +118,14 @@
 
     <!-- Optimizer rules view -->
     <div class="admin-panel" id="view-optimizer">
-      <h2 style="margin-bottom:16px;font-size:18px">Motor de Optimización</h2>
-
-      <!-- Pending recommendations -->
+      <h2 style="margin-bottom:16px;font-size:18px">Motor de Optimizacion</h2>
       <div class="admin-section" id="recs-section">
         <h3>Recomendaciones pendientes</h3>
         <div id="recs-content"></div>
-        <button onclick="evaluateRules()" style="margin-top:8px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text-dim);cursor:pointer;font-size:13px">Evaluar reglas ahora</button>
+        <button onclick="evaluateRules(this)" style="margin-top:8px;padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text-dim);cursor:pointer;font-size:13px">Evaluar reglas ahora</button>
       </div>
-
-      <!-- Rules -->
       <div class="admin-section">
-        <h3>Reglas de optimización</h3>
+        <h3>Reglas de optimizacion</h3>
         <div id="rules-list"></div>
         <details style="margin-top:12px">
           <summary style="cursor:pointer;color:var(--accent);font-size:13px">+ Agregar regla</summary>
@@ -129,7 +135,7 @@
               <input type="text" id="rule-name" placeholder="Ej: Pausar si CPA > $10">
             </div>
             <div class="admin-field">
-              <label>Métrica</label>
+              <label>Metrica</label>
               <select id="rule-metric" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text)">
                 <option value="cpa_7d_micros">CPA 7d</option>
                 <option value="ctr_7d">CTR 7d</option>
@@ -157,22 +163,20 @@
               </div>
             </div>
             <div class="admin-field">
-              <label>Acción</label>
+              <label>Accion</label>
               <select id="rule-action" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text)">
                 <option value="alert">Solo alertar</option>
-                <option value="pause_campaign">Pausar campaña</option>
-                <option value="enable_campaign">Activar campaña</option>
+                <option value="pause_campaign">Pausar campana</option>
+                <option value="enable_campaign">Activar campana</option>
               </select>
             </div>
             <div class="admin-field">
-              <label><input type="checkbox" id="rule-auto"> Ejecutar automáticamente (sin aprobación)</label>
+              <label><input type="checkbox" id="rule-auto"> Ejecutar automaticamente (sin aprobacion)</label>
             </div>
-            <button class="admin-save" onclick="createRule()">Crear regla</button>
+            <button class="admin-save" onclick="createRule(this)">Crear regla</button>
           </div>
         </details>
       </div>
-
-      <!-- Optimization logs -->
       <div class="admin-section">
         <h3>Historial de optimizaciones</h3>
         <div id="optim-logs"></div>
@@ -181,7 +185,7 @@
 
     <!-- Logs view -->
     <div class="logs-panel" id="view-logs">
-      <h2 style="margin-bottom:16px;font-size:18px">Logs de campañas</h2>
+      <h2 style="margin-bottom:16px;font-size:18px">Logs de campanas</h2>
       <div id="logs-content"></div>
     </div>
 
@@ -190,24 +194,24 @@
       <div class="admin-section">
         <h3>Agregar conocimiento</h3>
         <div class="admin-field">
-          <label>Categoría</label>
+          <label>Categoria</label>
           <select id="k-category">
             <option value="best_practice">Best Practice</option>
             <option value="user_feedback">Feedback / Preferencia</option>
-            <option value="optimization">Tip de Optimización</option>
-            <option value="campaign_result">Resultado de Campaña</option>
+            <option value="optimization">Tip de Optimizacion</option>
+            <option value="campaign_result">Resultado de Campana</option>
           </select>
         </div>
         <div class="admin-field">
-          <label>Título</label>
-          <input type="text" id="k-title" placeholder="Ej: Usar EXACT match para keywords de alta intención">
+          <label>Titulo</label>
+          <input type="text" id="k-title" placeholder="Ej: Usar EXACT match para keywords de alta intencion">
         </div>
         <div class="admin-field">
           <label>Contenido</label>
           <textarea id="k-content" rows="4" placeholder="Detalle del conocimiento..."
             style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;resize:vertical"></textarea>
         </div>
-        <button class="admin-save" onclick="addKnowledge()">Agregar</button>
+        <button class="admin-save" onclick="addKnowledge(this)">Agregar</button>
       </div>
       <div class="admin-section">
         <h3>Base de conocimiento</h3>
@@ -215,62 +219,173 @@
       </div>
     </div>
 
+    <!-- Keywords view -->
+    <div class="admin-panel" id="view-keywords">
+      <div class="admin-section">
+        <h3>Keyword Research</h3>
+        <div class="admin-field">
+          <label>Seed Keywords (una por linea)</label>
+          <textarea id="kw-seeds" rows="4" placeholder="zapatillas running&#10;zapatillas deportivas&#10;running shoes"
+            style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+        <div class="admin-field">
+          <label>URL (opcional, para ideas basadas en pagina)</label>
+          <input type="text" id="kw-url" placeholder="https://ejemplo.com/zapatillas">
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="admin-field" style="flex:1">
+            <label>Pais</label>
+            <select id="kw-geo" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text)">
+              <option value="AR" selected>Argentina</option>
+              <option value="US">Estados Unidos</option>
+              <option value="BR">Brasil</option>
+              <option value="MX">Mexico</option>
+              <option value="ES">Espana</option>
+              <option value="CL">Chile</option>
+              <option value="CO">Colombia</option>
+              <option value="PE">Peru</option>
+              <option value="UY">Uruguay</option>
+              <option value="GB">Reino Unido</option>
+              <option value="DE">Alemania</option>
+              <option value="FR">Francia</option>
+              <option value="IT">Italia</option>
+            </select>
+          </div>
+          <div class="admin-field" style="flex:1">
+            <label>Idioma</label>
+            <select id="kw-lang" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text)">
+              <option value="es" selected>Espanol</option>
+              <option value="en">Ingles</option>
+              <option value="pt">Portugues</option>
+              <option value="fr">Frances</option>
+              <option value="de">Aleman</option>
+              <option value="it">Italiano</option>
+            </select>
+          </div>
+        </div>
+        <button class="admin-save" onclick="searchKeywords(this)">Buscar ideas</button>
+      </div>
+      <div class="admin-section" id="kw-results-section" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin-bottom:0">Resultados</h3>
+          <button onclick="copySelectedKeywords()" style="padding:4px 12px;border:1px solid var(--accent);border-radius:4px;background:none;color:var(--accent);cursor:pointer;font-size:12px">Copiar seleccionadas</button>
+        </div>
+        <div id="kw-results" style="overflow-x:auto"></div>
+      </div>
+    </div>
+
     <!-- Admin view -->
     <div class="admin-panel" id="view-admin">
+      <!-- Mi cuenta -->
       <div class="admin-section">
-        <h3>LLM Provider</h3>
+        <h3>Mi cuenta</h3>
         <div class="admin-field">
-          <label>Provider</label>
-          <select id="s-llm-provider">
-            <option value="openai">OpenAI directo</option>
-            <option value="openrouter">OpenRouter</option>
-          </select>
-        </div>
-        <div class="admin-field">
-          <label>OpenAI API Key</label>
-          <input type="password" id="s-llm-api-key" placeholder="sk-...">
-        </div>
-        <div class="admin-field">
-          <label>Modelo (OpenAI)</label>
-          <input type="text" id="s-llm-model" placeholder="gpt-4o-mini">
-        </div>
-        <div class="admin-field">
-          <label>OpenRouter API Key</label>
-          <input type="password" id="s-openrouter-api-key" placeholder="sk-or-...">
-        </div>
-        <div class="admin-field">
-          <label>Modelo (OpenRouter)</label>
-          <input type="text" id="s-openrouter-model" placeholder="openai/gpt-4o-mini">
-        </div>
-        <button class="admin-save" onclick="saveSettings()">Guardar</button>
-      </div>
-      <div class="admin-section">
-        <h3>Google Ads API</h3>
-        <div class="admin-field">
-          <label>Client ID</label>
+          <label>Google Ads — Client ID</label>
           <input type="text" id="s-gads-client-id" placeholder="123456789.apps.googleusercontent.com">
         </div>
         <div class="admin-field">
-          <label>Client Secret</label>
+          <label>Google Ads — Client Secret</label>
           <input type="password" id="s-gads-client-secret" placeholder="GOCSPX-...">
         </div>
         <div class="admin-field">
-          <label>Developer Token</label>
+          <label>Google Ads — Developer Token</label>
           <input type="password" id="s-gads-dev-token" placeholder="xxxxxxxxxxxxxxxxxxxx">
         </div>
         <div class="admin-field">
-          <label>Refresh Token</label>
+          <label>Google Ads — Refresh Token</label>
           <input type="password" id="s-gads-refresh-token" placeholder="1//0...">
         </div>
         <div class="admin-field">
-          <label>Customer ID (sin guiones)</label>
+          <label>Google Ads — Customer ID (sin guiones)</label>
           <input type="text" id="s-gads-customer-id" placeholder="1234567890">
         </div>
         <div class="admin-field">
-          <label>Login Customer ID (MCC, opcional)</label>
+          <label>Google Ads — Login Customer ID (MCC, opcional)</label>
           <input type="text" id="s-gads-login-customer-id" placeholder="1234567890">
         </div>
-        <button class="admin-save" onclick="saveGoogleAds()">Guardar Google Ads</button>
+        <button class="admin-save" onclick="saveGoogleAds(this)">Guardar Google Ads</button>
+      </div>
+
+      <div class="admin-section">
+        <h3>Detalles del negocio</h3>
+        <p style="color:var(--text-dim);font-size:12px;margin-bottom:12px">Info sobre tu negocio, competencia, industria. Se inyecta al system prompt del LLM para personalizar las recomendaciones.</p>
+        <div class="admin-field">
+          <textarea id="s-business-context" rows="8" placeholder="Ej: Somos una agencia de marketing digital en Buenos Aires. Nuestros clientes son pymes de e-commerce..."
+            style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;resize:vertical"></textarea>
+        </div>
+        <button class="admin-save" onclick="saveBusinessContext(this)">Guardar</button>
+      </div>
+
+      <!-- Plataforma (admin only) -->
+      <div id="admin-platform-section" style="display:none">
+        <div class="admin-section">
+          <h3>Plataforma — LLM Provider</h3>
+          <div class="admin-field">
+            <label>Provider</label>
+            <select id="s-llm-provider">
+              <option value="openai">OpenAI directo</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+          </div>
+          <div class="admin-field">
+            <label>OpenAI API Key</label>
+            <input type="password" id="s-llm-api-key" placeholder="sk-...">
+          </div>
+          <div class="admin-field">
+            <label>Modelo (OpenAI)</label>
+            <input type="text" id="s-llm-model" placeholder="gpt-4o-mini">
+          </div>
+          <div class="admin-field">
+            <label>OpenRouter API Key</label>
+            <input type="password" id="s-openrouter-api-key" placeholder="sk-or-...">
+          </div>
+          <div class="admin-field">
+            <label>Modelo (OpenRouter)</label>
+            <input type="text" id="s-openrouter-model" placeholder="openai/gpt-4o-mini">
+          </div>
+          <button class="admin-save" onclick="saveLLMSettings(this)">Guardar LLM</button>
+        </div>
+
+        <div class="admin-section">
+          <h3>Master Prompt</h3>
+          <p style="color:var(--text-dim);font-size:12px;margin-bottom:12px">Prompt global que guia al LLM para todos los clientes. North star de la plataforma.</p>
+          <div class="admin-field">
+            <textarea id="s-master-prompt" rows="10"
+              style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;resize:vertical"
+              placeholder="Ej: Siempre priorizar ROAS sobre volumen. Recomendar budgets conservadores..."></textarea>
+          </div>
+          <button class="admin-save" onclick="saveMasterPrompt(this)">Guardar Master Prompt</button>
+        </div>
+
+        <!-- Users management -->
+        <div class="admin-section">
+          <h3>Usuarios</h3>
+          <div id="users-list"></div>
+          <details style="margin-top:12px">
+            <summary style="cursor:pointer;color:var(--accent);font-size:13px">+ Crear usuario</summary>
+            <div style="margin-top:12px">
+              <div class="admin-field">
+                <label>Email</label>
+                <input type="email" id="new-user-email" placeholder="usuario@ejemplo.com">
+              </div>
+              <div class="admin-field">
+                <label>Nombre</label>
+                <input type="text" id="new-user-name" placeholder="Nombre">
+              </div>
+              <div class="admin-field">
+                <label>Password</label>
+                <input type="password" id="new-user-password" placeholder="Min 6 caracteres">
+              </div>
+              <button class="admin-save" onclick="createUser(this)">Crear usuario</button>
+            </div>
+          </details>
+        </div>
+
+        <!-- LLM Usage -->
+        <div class="admin-section">
+          <h3>Consumo LLM (mes actual)</h3>
+          <div id="usage-content"></div>
+        </div>
       </div>
     </div>
 
@@ -280,6 +395,20 @@
     </div>
   </div>
 
-  <script src="/app.js?v=2"></script>
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <!-- Confirm modal -->
+  <div id="confirm-overlay" class="confirm-overlay">
+    <div class="confirm-card">
+      <p id="confirm-message"></p>
+      <div class="confirm-actions">
+        <button class="confirm-cancel" id="confirm-cancel-btn">Cancelar</button>
+        <button class="confirm-ok" id="confirm-ok-btn">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js?v=4"></script>
 </body>
 </html>

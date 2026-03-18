@@ -6,6 +6,7 @@ module.exports = {
   supabaseUrl: process.env.SUPABASE_URL,
   supabaseKey: process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY,
   adminToken: process.env.ADMIN_TOKEN,
+  jwtSecret: process.env.JWT_SECRET || 'adpilot-dev-secret-change-me',
   googleAds: {
     clientId: process.env.GOOGLE_ADS_CLIENT_ID,
     clientSecret: process.env.GOOGLE_ADS_CLIENT_SECRET,

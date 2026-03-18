@@ -1,27 +1,43 @@
 const { GoogleAdsApi } = require('google-ads-api');
 const config = require('../config');
 const supabase = require('../db/supabase');
+const { decryptIfSensitive } = require('./settings-crypto');
 
-let client = null;
-let customer = null;
-let credsCacheTime = 0;
+// Cache per-user: Map<userId, { customer, customerId, cacheTime }>
+const clientCache = new Map();
+const CACHE_TTL = 300_000; // 5 min
 
 /**
- * Obtiene credenciales de Google Ads: primero de la DB, fallback al .env
+ * Obtiene credenciales de Google Ads para un usuario específico
  */
-async function getGadsCreds() {
-  // Cache por 5 minutos
-  if (customer && Date.now() - credsCacheTime < 300_000) return;
+async function getGadsCreds(userId = null) {
+  const cacheKey = userId || '__global__';
+  const cached = clientCache.get(cacheKey);
+  if (cached && Date.now() - cached.cacheTime < CACHE_TTL) {
+    return { customer: cached.customer, customerId: cached.customerId };
+  }
 
   let creds = { ...config.googleAds };
 
-  // Intentar leer de la DB
+  // Intentar leer settings de la DB
   try {
-    const { data } = await supabase.from('adpilot_settings').select('key, value');
+    // Global settings first
+    const { data: globalRows } = await supabase
+      .from('adpilot_settings')
+      .select('key, value')
+      .is('user_id', null);
     const db = {};
-    for (const row of data || []) db[row.key] = row.value;
+    for (const row of globalRows || []) db[row.key] = decryptIfSensitive(row.key, row.value);
 
-    // DB overrides .env si tiene valor
+    // Per-user settings override
+    if (userId) {
+      const { data: userRows } = await supabase
+        .from('adpilot_settings')
+        .select('key, value')
+        .eq('user_id', userId);
+      for (const row of userRows || []) db[row.key] = decryptIfSensitive(row.key, row.value);
+    }
+
     if (db.gads_client_id) creds.clientId = db.gads_client_id;
     if (db.gads_client_secret) creds.clientSecret = db.gads_client_secret;
     if (db.gads_dev_token) creds.developerToken = db.gads_dev_token;
@@ -36,36 +52,36 @@ async function getGadsCreds() {
     throw new Error('Google Ads credentials not configured');
   }
 
-  client = new GoogleAdsApi({
+  const client = new GoogleAdsApi({
     client_id: creds.clientId,
     client_secret: creds.clientSecret,
     developer_token: creds.developerToken,
   });
-  customer = client.Customer({
+  const customer = client.Customer({
     customer_id: creds.customerId,
     login_customer_id: creds.loginCustomerId,
     refresh_token: creds.refreshToken,
   });
-  credsCacheTime = Date.now();
+
+  clientCache.set(cacheKey, { customer, customerId: creds.customerId, cacheTime: Date.now() });
+  return { customer, customerId: creds.customerId };
 }
 
-async function getClient() {
-  await getGadsCreds();
+async function getClient(userId = null) {
+  const { customer } = await getGadsCreds(userId);
   return customer;
 }
 
-/** Invalida cache (llamar después de cambiar settings) */
-function invalidateClient() {
-  client = null;
-  customer = null;
-  credsCacheTime = 0;
+function invalidateClient(userId = null) {
+  if (userId) {
+    clientCache.delete(userId);
+  } else {
+    clientCache.clear();
+  }
 }
 
-/**
- * Test de conexión: lista campañas existentes
- */
-async function listCampaigns() {
-  const cust = await getClient();
+async function listCampaigns(userId = null) {
+  const cust = await getClient(userId);
   const campaigns = await cust.query(`
     SELECT campaign.id, campaign.name, campaign.status,
            campaign_budget.amount_micros
@@ -82,11 +98,8 @@ async function listCampaigns() {
   }));
 }
 
-/**
- * Crea una campaña completa a partir del draft JSON del LLM
- */
-async function createCampaignFromDraft(draft) {
-  const cust = await getClient();
+async function createCampaignFromDraft(draft, userId = null) {
+  const cust = await getClient(userId);
   const results = { campaignId: null, adGroupIds: [], errors: [] };
 
   try {
@@ -103,10 +116,9 @@ async function createCampaignFromDraft(draft) {
       name: draft.campaign.name,
       campaign_budget: budgetResourceName,
       advertising_channel_type: draft.campaign.type,
-      status: 'PAUSED', // siempre crear pausada para revisión
+      status: 'PAUSED',
     };
 
-    // Bidding strategy
     if (draft.campaign.bidding_strategy === 'TARGET_CPA') {
       campaignData.target_cpa = { target_cpa_micros: draft.campaign.bidding_value_micros };
     } else if (draft.campaign.bidding_strategy === 'MAXIMIZE_CONVERSIONS') {
@@ -117,7 +129,6 @@ async function createCampaignFromDraft(draft) {
       campaignData.target_roas = { target_roas: draft.campaign.bidding_value_micros / 1000000 };
     }
 
-    // Network settings (Search)
     if (draft.campaign.networks) {
       campaignData.network_settings = {
         target_google_search: draft.campaign.networks.search ?? true,
@@ -126,7 +137,6 @@ async function createCampaignFromDraft(draft) {
       };
     }
 
-    // Start date
     if (draft.campaign.start_date) {
       campaignData.start_date = draft.campaign.start_date.replace(/-/g, '');
     }
@@ -165,7 +175,6 @@ async function createCampaignFromDraft(draft) {
         const agResourceName = agResult.results[0].resource_name;
         results.adGroupIds.push(agResourceName.split('/').pop());
 
-        // Keywords
         if (ag.keywords?.length) {
           const keywords = ag.keywords.map(kw => ({
             ad_group: agResourceName,
@@ -175,7 +184,6 @@ async function createCampaignFromDraft(draft) {
           await cust.adGroupCriteria.create(keywords);
         }
 
-        // Negative keywords
         if (ag.negative_keywords?.length) {
           const negKws = ag.negative_keywords.map(text => ({
             ad_group: agResourceName,
@@ -186,17 +194,13 @@ async function createCampaignFromDraft(draft) {
           await cust.adGroupCriteria.create(negKws);
         }
 
-        // Responsive Search Ads
         for (const ad of ag.ads || []) {
           if (ad.type === 'RESPONSIVE_SEARCH_AD') {
             await cust.adGroupAds.create([{
               ad_group: agResourceName,
               ad: {
                 responsive_search_ad: {
-                  headlines: ad.headlines.map((h, i) => ({
-                    text: h,
-                    pinned_field: i < 3 ? undefined : undefined, // no pinning by default
-                  })),
+                  headlines: ad.headlines.map((h) => ({ text: h })),
                   descriptions: ad.descriptions.map(d => ({ text: d })),
                   path1: ad.path1 || '',
                   path2: ad.path2 || '',
@@ -218,19 +222,15 @@ async function createCampaignFromDraft(draft) {
   return results;
 }
 
-/**
- * Elimina una campaña (para rollback)
- */
-async function removeCampaign(campaignId) {
-  const cust = await getClient();
-  const cfg = require('../config').googleAds;
-  await cust.campaigns.update([{
-    resource_name: `customers/${cfg.customerId}/campaigns/${campaignId}`,
+async function removeCampaign(campaignId, userId = null) {
+  const { customer, customerId } = await getGadsCreds(userId);
+  await customer.campaigns.update([{
+    resource_name: `customers/${customerId}/campaigns/${campaignId}`,
     status: 'REMOVED',
   }]);
 }
 
-// Geo ID lookup — expandido
+// Geo ID lookup
 function getGeoId(code) {
   const map = {
     AR: 2032, US: 2840, BR: 2076, MX: 2484, ES: 2724,
@@ -252,7 +252,6 @@ function getGeoId(code) {
   return id;
 }
 
-// Language ID lookup — expandido
 function getLangId(code) {
   const map = {
     es: 1003, en: 1000, pt: 1014, fr: 1002, de: 1001, it: 1004,
@@ -266,4 +265,32 @@ function getLangId(code) {
   return id;
 }
 
-module.exports = { listCampaigns, createCampaignFromDraft, removeCampaign, invalidateClient };
+async function keywordIdeas({ keywords = [], url = null, geo = 'AR', language = 'es' }, userId = null) {
+  if (!keywords.length && !url) {
+    throw new Error('Se requiere al menos keywords o url');
+  }
+
+  const { customer, customerId } = await getGadsCreds(userId);
+
+  const request = {
+    customer_id: customerId,
+    language: `languageConstants/${getLangId(language)}`,
+    geo_target_constants: [`geoTargetConstants/${getGeoId(geo)}`],
+    keyword_plan_network: 'GOOGLE_SEARCH',
+  };
+  if (keywords.length) request.keyword_seed = { keywords };
+  if (url) request.url_seed = { url };
+
+  const response = await customer.keywordPlanIdeas.generateKeywordIdeas(request);
+
+  return (response || []).map(r => ({
+    keyword: r.text,
+    avg_monthly_searches: Number(r.keyword_idea_metrics?.avg_monthly_searches) || 0,
+    competition: r.keyword_idea_metrics?.competition || 'UNSPECIFIED',
+    competition_index: Number(r.keyword_idea_metrics?.competition_index) || 0,
+    low_cpc_micros: Number(r.keyword_idea_metrics?.low_top_of_page_bid_micros) || 0,
+    high_cpc_micros: Number(r.keyword_idea_metrics?.high_top_of_page_bid_micros) || 0,
+  }));
+}
+
+module.exports = { listCampaigns, createCampaignFromDraft, removeCampaign, invalidateClient, keywordIdeas };

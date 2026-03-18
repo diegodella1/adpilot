@@ -43,15 +43,12 @@ Reglas:
 - Si no hay data suficiente, decilo
 - Siempre mencioná el impacto estimado de tus recomendaciones`;
 
-/**
- * Arma el contexto de métricas para inyectar al system prompt
- */
-async function buildMetricsContext(campaignId) {
+async function buildMetricsContext(campaignId, userId) {
   const micro = (v) => `$${(Number(v) / 1_000_000).toFixed(2)}`;
   let ctx = '';
 
   try {
-    const summaries = await metrics.getSummaries();
+    const summaries = await metrics.getSummaries(userId);
     if (summaries.length > 0) {
       ctx = '\n\n## Métricas actuales de campañas\n';
       for (const s of summaries) {
@@ -68,7 +65,7 @@ async function buildMetricsContext(campaignId) {
     }
 
     if (campaignId) {
-      const daily = await metrics.getDailyMetrics(campaignId, 14);
+      const daily = await metrics.getDailyMetrics(campaignId, 14, userId);
       if (daily.length > 0) {
         ctx += '\n### Tendencia diaria (últimos 14 días)\n';
         for (const d of daily) {
@@ -83,21 +80,20 @@ async function buildMetricsContext(campaignId) {
   return ctx;
 }
 
-/**
- * Chat de análisis — conversación sobre campañas existentes
- */
 router.post('/chat', async (req, res) => {
   try {
     const { message, conversation_id, campaign_id } = req.body;
     if (!message?.trim()) return res.status(400).json({ error: 'Message required' });
 
-    // Obtener o crear conversación de análisis
+    const userId = req.user.id;
+
     let conv;
     if (conversation_id) {
       const { data } = await supabase
         .from('adpilot_conversations')
         .select('*')
         .eq('id', conversation_id)
+        .eq('user_id', userId)
         .single();
       conv = data;
     }
@@ -105,42 +101,36 @@ router.post('/chat', async (req, res) => {
     if (!conv) {
       const { data } = await supabase
         .from('adpilot_conversations')
-        .insert({ state: 'analysis', messages: [], draft: { type: 'analysis', campaign_id } })
+        .insert({ state: 'analysis', messages: [], draft: { type: 'analysis', campaign_id }, user_id: userId })
         .select('*')
         .single();
       conv = data;
     }
 
-    // Contexto de métricas
     const targetCampaign = campaign_id || conv.draft?.campaign_id;
-    const metricsContext = await buildMetricsContext(targetCampaign);
+    const metricsContext = await buildMetricsContext(targetCampaign, userId);
 
-    // RAG
     let ragBlock = '';
     try {
-      const ragResults = await knowledge.search(message, { count: 3, category: 'optimization' });
+      const ragResults = await knowledge.search(message, { count: 3, category: 'optimization', userId });
       if (ragResults.length > 0) {
         ragBlock = '\n\n## Conocimiento previo de optimización\n' +
           ragResults.map(k => `- ${k.title}: ${k.content}`).join('\n');
       }
     } catch (e) {}
 
-    // Historial + nuevo mensaje
     const messages = [...(conv.messages || []), { role: 'user', content: message.trim() }];
     const llmMessages = messages.map(m => ({ role: m.role, content: m.content }));
 
-    // Llamar LLM con system prompt enriquecido
     const fullSystemPrompt = ANALYSIS_SYSTEM_PROMPT + metricsContext + ragBlock;
-    const assistantMessage = await llm.chatWithSystem(fullSystemPrompt, llmMessages);
+    const assistantMessage = await llm.chatWithSystem(fullSystemPrompt, llmMessages, userId);
 
-    // Detectar acciones en la respuesta
     const actionMatch = assistantMessage.match(/```action\s*([\s\S]*?)```/);
     let action = null;
     if (actionMatch) {
       try { action = JSON.parse(actionMatch[1]); } catch {}
     }
 
-    // Guardar mensajes
     const updatedMessages = [...messages, { role: 'assistant', content: assistantMessage }];
     await supabase.from('adpilot_conversations')
       .update({ messages: updatedMessages, updated_at: new Date().toISOString() })
@@ -156,11 +146,12 @@ router.post('/chat', async (req, res) => {
   }
 });
 
-// Ejecutar acción sugerida por el LLM
 router.post('/execute-action', async (req, res) => {
   try {
     const { action } = req.body;
     if (!action?.type) return res.status(400).json({ error: 'Action required' });
+
+    const userId = req.user.id;
 
     const { data: log } = await supabase
       .from('adpilot_optimization_logs')
@@ -171,12 +162,13 @@ router.post('/execute-action', async (req, res) => {
         status: 'pending',
         recommendation: action.reason,
         payload: { action },
+        user_id: userId,
       })
       .select('*')
       .single();
 
     const optimizer = require('../services/optimizer');
-    const result = await optimizer.executeOptimization(log.id);
+    const result = await optimizer.executeOptimization(log.id, userId);
     res.json(result);
   } catch (err) {
     errorResponse(res, err);

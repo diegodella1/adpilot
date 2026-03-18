@@ -3,13 +3,10 @@ const googleAds = require('./google-ads');
 const conversation = require('./conversation');
 const knowledge = require('./knowledge');
 
-const MAX_BUDGET_MICROS = 500_000_000; // $500/día max
+const MAX_BUDGET_MICROS = 500_000_000;
 const MAX_KEYWORDS_PER_GROUP = 50;
 const MAX_AD_GROUPS = 20;
 
-/**
- * Valida el draft de campaña antes de ejecutar
- */
 function validateDraft(draft) {
   const errors = [];
 
@@ -63,22 +60,17 @@ function validateDraft(draft) {
   return errors;
 }
 
-/**
- * Ejecuta la creación de la campaña en Google Ads con rollback
- */
-async function execute(conversationId) {
-  const conv = await conversation.get(conversationId);
+async function execute(conversationId, userId) {
+  const conv = await conversation.get(conversationId, userId);
   if (!conv) throw new Error('Conversation not found');
   if (conv.state !== 'confirmed') throw new Error('Campaign not confirmed yet');
   if (!conv.draft) throw new Error('No campaign draft found');
 
-  // Validar ANTES de cambiar estado
   const validationErrors = validateDraft(conv.draft);
   if (validationErrors.length > 0) {
     return { success: false, errors: validationErrors };
   }
 
-  // Marcar como ejecutando
   await conversation.update(conversationId, { state: 'executing' });
 
   await supabase.from('adpilot_campaign_logs').insert({
@@ -86,10 +78,11 @@ async function execute(conversationId) {
     action: 'create_campaign',
     status: 'started',
     payload: conv.draft,
+    user_id: userId,
   });
 
   try {
-    const result = await googleAds.createCampaignFromDraft(conv.draft);
+    const result = await googleAds.createCampaignFromDraft(conv.draft, userId);
 
     if (result.errors.length > 0 && !result.campaignId) {
       await conversation.update(conversationId, { state: 'error' });
@@ -98,23 +91,23 @@ async function execute(conversationId) {
         action: 'create_campaign',
         status: 'failed',
         payload: { result },
+        user_id: userId,
       });
       return { success: false, errors: result.errors };
     }
 
-    // Si hay errores parciales (campaña creada pero ad groups fallaron), intentar rollback
     if (result.errors.length > 0 && result.campaignId) {
       const criticalFailures = result.errors.filter(e => e.adGroup);
       if (criticalFailures.length === conv.draft.ad_groups.length) {
-        // TODOS los ad groups fallaron — rollback campaña
         try {
-          await googleAds.removeCampaign(result.campaignId);
+          await googleAds.removeCampaign(result.campaignId, userId);
           await conversation.update(conversationId, { state: 'error' });
           await supabase.from('adpilot_campaign_logs').insert({
             conversation_id: conversationId,
             action: 'create_campaign',
             status: 'rolled_back',
             payload: { result, reason: 'All ad groups failed' },
+            user_id: userId,
           });
           return {
             success: false,
@@ -126,17 +119,16 @@ async function execute(conversationId) {
       }
     }
 
-    // Éxito (total o parcial)
     await conversation.update(conversationId, { state: 'done' });
     await supabase.from('adpilot_campaign_logs').insert({
       conversation_id: conversationId,
       action: 'create_campaign',
       status: result.errors.length > 0 ? 'partial' : 'success',
       payload: { result },
+      user_id: userId,
     });
 
-    // Auto-learn
-    knowledge.learnFromConversation(conv).catch(e =>
+    knowledge.learnFromConversation(conv, userId).catch(e =>
       console.warn('Auto-learn failed:', e.message)
     );
 
@@ -153,6 +145,7 @@ async function execute(conversationId) {
       action: 'create_campaign',
       status: 'failed',
       payload: { error: err.message },
+      user_id: userId,
     });
     return { success: false, errors: [{ error: err.message }] };
   }
