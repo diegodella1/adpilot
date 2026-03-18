@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdPilot</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Ad<span>Pilot</span></h1>
+    <div class="header-actions">
+      <button id="btn-chat" class="active" onclick="showView('chat')">Chat</button>
+      <button id="btn-logs" onclick="showView('logs')">Logs</button>
+      <button id="btn-admin" onclick="showView('admin')">Admin</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <button onclick="newConversation()">+ Nueva campaña</button>
+      </div>
+      <div class="conversation-list" id="conv-list"></div>
+    </div>
+
+    <!-- Chat view -->
+    <div class="chat-area" id="view-chat">
+      <div class="state-bar" id="state-bar" style="display:none">
+        <div class="state-dot" id="state-dot"></div>
+        <span id="state-text"></span>
+      </div>
+      <div class="messages" id="messages">
+        <div class="empty-state">Creá una nueva conversación para empezar</div>
+      </div>
+      <div class="action-buttons" id="action-buttons" style="display:none">
+        <button class="btn-approve" onclick="approveAndExecute()">Aprobar y ejecutar</button>
+        <button class="btn-cancel" onclick="sendMessage('Cancelar, quiero hacer cambios')">Editar</button>
+      </div>
+      <div class="input-area">
+        <textarea id="input" placeholder="Describí tu campaña..." rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+        <button id="send-btn" onclick="send()">Enviar</button>
+      </div>
+    </div>
+
+    <!-- Logs view -->
+    <div class="logs-panel" id="view-logs">
+      <h2 style="margin-bottom:16px;font-size:18px">Logs de campañas</h2>
+      <div id="logs-content"></div>
+    </div>
+
+    <!-- Admin view -->
+    <div class="admin-panel" id="view-admin">
+      <div class="admin-section">
+        <h3>LLM Provider</h3>
+        <div class="admin-field">
+          <label>Provider</label>
+          <select id="s-llm-provider">
+            <option value="openai">OpenAI directo</option>
+            <option value="openrouter">OpenRouter</option>
+          </select>
+        </div>
+        <div class="admin-field">
+          <label>OpenAI API Key</label>
+          <input type="password" id="s-llm-api-key" placeholder="sk-...">
+        </div>
+        <div class="admin-field">
+          <label>Modelo (OpenAI)</label>
+          <input type="text" id="s-llm-model" placeholder="gpt-4o-mini">
+        </div>
+        <div class="admin-field">
+          <label>OpenRouter API Key</label>
+          <input type="password" id="s-openrouter-api-key" placeholder="sk-or-...">
+        </div>
+        <div class="admin-field">
+          <label>Modelo (OpenRouter)</label>
+          <input type="text" id="s-openrouter-model" placeholder="openai/gpt-4o-mini">
+        </div>
+        <button class="admin-save" onclick="saveSettings()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
