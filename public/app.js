@@ -75,7 +75,8 @@ function isAdmin() {
 
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('main-header').style.display = 'flex';
+  const shell = document.getElementById('app-shell');
+  if (shell) shell.style.display = 'flex';
   document.getElementById('main-app').style.display = 'flex';
 
   // Show user info
@@ -84,15 +85,13 @@ function showApp() {
     display.textContent = USER.name || USER.email;
   }
 
-  // Show/hide admin-only sections in header
-  // Admin platform section visibility is handled in loadSettings
-
   loadConversations();
 }
 
 function showLogin() {
   document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('main-header').style.display = 'none';
+  const shell = document.getElementById('app-shell');
+  if (shell) shell.style.display = 'none';
   document.getElementById('main-app').style.display = 'none';
 }
 
@@ -206,13 +205,20 @@ validateToken();
 const ALL_VIEWS = ['chat', 'dashboard', 'analyze', 'optimizer', 'logs', 'knowledge', 'keywords', 'admin', 'docs'];
 
 function showView(view) {
-  document.querySelectorAll('.header-actions button:not(.btn-logout)').forEach(b => b.classList.remove('active'));
-  document.getElementById(`btn-${view}`).classList.add('active');
+  // Update nav buttons
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(`btn-${view}`);
+  if (btn) btn.classList.add('active');
+
+  // Toggle views
   for (const v of ALL_VIEWS) {
     const el = document.getElementById(`view-${v}`);
     if (el) el.style.display = v === view ? (v === 'chat' || v === 'analyze' ? 'flex' : 'block') : 'none';
   }
-  document.querySelector('.sidebar').style.display = (view === 'chat') ? 'flex' : 'none';
+
+  // Sidebar only for chat
+  const sidebar = document.getElementById('chat-sidebar');
+  if (sidebar) sidebar.style.display = (view === 'chat') ? 'flex' : 'none';
 
   if (view === 'logs') loadLogs();
   if (view === 'knowledge') loadKnowledge();
@@ -1167,103 +1173,59 @@ async function loadUsage() {
 
 function renderDocs() {
   document.getElementById('docs-content').innerHTML = `
-    <div class="admin-section" style="max-width:800px">
-      <h2 style="font-size:22px;margin-bottom:4px">AdPilot</h2>
-      <p style="color:var(--text-dim);margin-bottom:20px">Agente conversacional para Google Ads. Crea, analiza y optimiza campanas con LLM.</p>
+    <div style="max-width:800px">
+      <div class="panel-header">
+        <div>
+          <h2>AdPilot</h2>
+          <p class="panel-subtitle">Agente conversacional para Google Ads. Crea, analiza y optimiza campanas con IA.</p>
+        </div>
+      </div>
 
-      <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-bottom:20px">
-        <h3 style="margin-bottom:8px;color:var(--accent)">Setup inicial</h3>
-        <ol style="padding-left:20px;line-height:1.8;color:var(--text-dim)">
-          <li>Hacer click en "Primer uso? Crear admin" en la pantalla de login para crear la cuenta admin.</li>
-          <li>Ir a <strong>Admin > Plataforma</strong> y configurar un LLM provider (OpenAI directo u OpenRouter) con su API key y modelo.</li>
-          <li>Configurar las credenciales de <strong>Google Ads</strong> en la seccion "Mi cuenta" del Admin.</li>
-          <li>Sin Google Ads configurado, AdPilot igual funciona como copiloto: genera estructuras de campana que podes crear manualmente.</li>
+      <div class="glass-card">
+        <h3>Setup inicial</h3>
+        <ol style="padding-left:20px;line-height:2;color:var(--text-secondary);font-size:14px">
+          <li>Hacer click en "Primer uso? Crear admin" en la pantalla de login.</li>
+          <li>Ir a <strong style="color:var(--text)">Admin</strong> y configurar el LLM provider con su API key y modelo.</li>
+          <li>Configurar las credenciales de <strong style="color:var(--text)">Google Ads</strong> en la misma seccion.</li>
+          <li>Sin Google Ads, AdPilot funciona como copiloto: genera estructuras que podes crear manualmente.</li>
         </ol>
       </div>
 
-      <h3 style="color:var(--accent);margin-bottom:12px">Secciones</h3>
-
-      <div style="display:grid;gap:12px">
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Chat - Crear campanas</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Describis lo que necesitas en lenguaje natural. El agente te pregunta lo que falta, genera la estructura completa de campana en JSON,
-            y te la muestra para que revises. Cuando estas conforme, apretas <strong>Aprobar y ejecutar</strong> y se crea la campana en Google Ads (pausada).
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Dashboard - Metricas</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            KPIs globales (spend, clicks, conversiones, CPA, CTR) y grafico de tendencia diaria.
-            Tabla con todas las campanas y sus metricas. Boton <strong>Sync ahora</strong> para forzar sincronizacion.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Analizar - Chat de analisis</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Selecciona una campana y el LLM analiza su rendimiento (CPA, CTR, ROAS, tendencias).
-            Puede sugerir acciones concretas (pausar campana, ajustar budget) que se ejecutan con un click.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Reglas - Motor de optimizacion</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Define reglas automaticas tipo "si CPA 7d > $10, pausar campana". Pueden auto-ejecutarse o quedar pendientes de aprobacion.
-            Se evaluan manualmente con el boton <strong>Evaluar reglas</strong> despues de sincronizar metricas.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Keywords - Planificador</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Genera ideas de keywords usando el Keyword Planner de Google Ads. Ingresa palabras clave semilla o una URL
-            y obtene volumen de busquedas, competencia y CPC estimado.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Knowledge - Base de conocimiento</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            Base vectorial (RAG) que alimenta al LLM con contexto de campanas pasadas y optimizaciones.
-            Se auto-alimenta cuando se crean o optimizan campanas. Tambien podes agregar entries manuales.
-          </p>
-        </div>
-
-        <div style="background:var(--surface2);border-radius:8px;padding:16px">
-          <h4 style="margin-bottom:6px">Admin</h4>
-          <p style="color:var(--text-dim);font-size:13px;line-height:1.6">
-            <strong>Mi cuenta:</strong> Credenciales de Google Ads y detalles del negocio (se inyectan al LLM).<br>
-            <strong>Plataforma (admin):</strong> LLM provider, master prompt global, gestion de usuarios y consumo.
-          </p>
-        </div>
+      <div style="display:grid;gap:12px;margin-bottom:16px">
+        ${[
+          ['Chat', 'Describis lo que necesitas. El agente pregunta, genera la campana en JSON, y la ejecuta en Google Ads.'],
+          ['Dashboard', 'KPIs globales, grafico de tendencia, tabla de campanas con alertas. Sync on-demand.'],
+          ['Analizar', 'Chat de analisis de rendimiento. Sugiere y ejecuta acciones de optimizacion.'],
+          ['Reglas', 'Motor de reglas automaticas (ej: "si CPA > $10, pausar campana").'],
+          ['Keywords', 'Ideas desde Google Ads Keyword Planner con volumen, competencia y CPC.'],
+          ['Knowledge', 'Base vectorial (RAG) que alimenta al agente con contexto. Se auto-alimenta.'],
+          ['Admin', 'Credenciales, LLM provider, master prompt, gestion de usuarios y consumo.'],
+        ].map(([title, desc]) => `
+          <div class="glass-card" style="margin-bottom:0">
+            <h3 style="margin-bottom:6px">${title}</h3>
+            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;margin:0">${desc}</p>
+          </div>
+        `).join('')}
       </div>
 
-      <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-top:16px">
-        <h3 style="margin-bottom:8px;color:var(--accent)">Credenciales necesarias</h3>
-        <table style="width:100%;font-size:13px;color:var(--text-dim);border-collapse:collapse">
-          <tr style="text-align:left;border-bottom:1px solid var(--border)">
-            <th style="padding:6px 0">Servicio</th><th style="padding:6px 0">Donde</th><th style="padding:6px 0">Obligatorio</th>
-          </tr>
-          <tr><td style="padding:4px 0">OpenAI API Key</td><td>Admin > Plataforma</td><td>Si</td></tr>
-          <tr><td style="padding:4px 0">Google Ads Client ID</td><td>Admin > Mi cuenta</td><td>Para ejecutar campanas</td></tr>
-          <tr><td style="padding:4px 0">Google Ads Developer Token</td><td>Admin > Mi cuenta</td><td>Para ejecutar campanas</td></tr>
-          <tr><td style="padding:4px 0">Google Ads Refresh Token</td><td>Admin > Mi cuenta</td><td>Para ejecutar campanas</td></tr>
-          <tr><td style="padding:4px 0">Google Ads Customer ID</td><td>Admin > Mi cuenta</td><td>Para ejecutar campanas</td></tr>
+      <div class="glass-card">
+        <h3>Credenciales necesarias</h3>
+        <table class="kw-table">
+          <thead><tr><th>Servicio</th><th>Donde</th><th>Obligatorio</th></tr></thead>
+          <tbody>
+            <tr><td>OpenAI API Key</td><td>Admin > Plataforma</td><td style="color:var(--green)">Si</td></tr>
+            <tr><td>Google Ads Client ID</td><td>Admin > Mi cuenta</td><td>Para ejecutar</td></tr>
+            <tr><td>Google Ads Developer Token</td><td>Admin > Mi cuenta</td><td>Para ejecutar</td></tr>
+            <tr><td>Google Ads Refresh Token</td><td>Admin > Mi cuenta</td><td>Para ejecutar</td></tr>
+            <tr><td>Google Ads Customer ID</td><td>Admin > Mi cuenta</td><td>Para ejecutar</td></tr>
+          </tbody>
         </table>
-        <p style="color:var(--text-dim);font-size:12px;margin-top:8px">
-          Sin Google Ads, AdPilot funciona como copiloto: genera estructuras de campana que podes crear manualmente en Google Ads.
-        </p>
       </div>
 
-      <div style="margin-top:24px;padding:16px;border-top:1px solid var(--border);color:var(--text-dim);font-size:12px">
-        <strong>Stack:</strong> Node.js (Express) + Supabase (PostgreSQL + pgvector) + Chart.js<br>
-        <strong>LLM:</strong> Configurable (OpenAI / OpenRouter / cualquier provider compatible)<br>
-        <strong>API:</strong> Google Ads API v18<br>
-        <strong>Auth:</strong> JWT (bcrypt + jsonwebtoken)<br>
-        <strong>Hosting:</strong> Raspberry Pi 5 via Cloudflare Tunnel
+      <div style="padding:16px 0;color:var(--text-dim);font-size:12px;line-height:1.8">
+        <strong>Stack:</strong> Node.js + Supabase + pgvector + Chart.js &nbsp;|&nbsp;
+        <strong>LLM:</strong> OpenAI / OpenRouter &nbsp;|&nbsp;
+        <strong>API:</strong> Google Ads v18
       </div>
     </div>
   `;
