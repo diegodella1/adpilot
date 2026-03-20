@@ -28,6 +28,13 @@ router.get('/conversations/:id', async (req, res) => {
   } catch (err) { errorResponse(res, err); }
 });
 
+router.delete('/conversations/:id', async (req, res) => {
+  try {
+    await conversation.remove(req.params.id, req.user.id);
+    res.json({ success: true });
+  } catch (err) { errorResponse(res, err); }
+});
+
 router.post('/conversations/:id/messages', async (req, res) => {
   try {
     const { message } = req.body;

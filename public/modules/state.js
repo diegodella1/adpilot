@@ -1,0 +1,26 @@
+export const API = '';
+export let TOKEN = localStorage.getItem('adpilot_token') || '';
+export let USER = JSON.parse(localStorage.getItem('adpilot_user') || 'null');
+export let currentConvId = null;
+export let sending = false;
+export let analysisConvId = null;
+export let pendingAction = null;
+export let globalChart = null;
+export let confirmResolve = null;
+export let setupMode = false;
+export let lastKeywordResults = [];
+export let campaignsCache = [];
+export let activeCampaignId = null;
+
+export function setToken(t) { TOKEN = t; }
+export function setUser(u) { USER = u; }
+export function setCurrentConvId(id) { currentConvId = id; }
+export function setSending(v) { sending = v; }
+export function setAnalysisConvId(id) { analysisConvId = id; }
+export function setPendingAction(a) { pendingAction = a; }
+export function setGlobalChart(c) { globalChart = c; }
+export function setConfirmResolve(r) { confirmResolve = r; }
+export function setSetupMode(v) { setupMode = v; }
+export function setLastKeywordResults(r) { lastKeywordResults = r; }
+export function setCampaignsCache(c) { campaignsCache = c; }
+export function setActiveCampaignId(id) { activeCampaignId = id; }

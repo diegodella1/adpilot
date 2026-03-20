@@ -1,14 +1,17 @@
 const OpenAI = require('openai');
 const supabase = require('../db/supabase');
 const config = require('../config');
+const { withRetry } = require('../utils/retry');
 
 async function embed(text) {
-  const openai = new OpenAI({ apiKey: config.openaiKey });
-  const res = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input: text,
-  });
-  return res.data[0].embedding;
+  return withRetry(async () => {
+    const openai = new OpenAI({ apiKey: config.openaiKey });
+    const res = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: text,
+    });
+    return res.data[0].embedding;
+  }, { maxRetries: 2, baseDelay: 1000 });
 }
 
 async function add({ category, title, content, metadata = {}, userId = null }) {

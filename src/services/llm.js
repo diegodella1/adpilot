@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const config = require('../config');
 const supabase = require('../db/supabase');
 const { decryptIfSensitive } = require('./settings-crypto');
+const { withRetry } = require('../utils/retry');
 
 // Cache de settings por userId (null = global)
 const settingsCache = new Map();
@@ -119,10 +120,15 @@ Cuando generes la estructura de campaña, usá EXACTAMENTE este formato JSON:
     "budget_micros": 50000000,
     "bidding_strategy": "TARGET_CPA|MAXIMIZE_CONVERSIONS|MAXIMIZE_CLICKS|TARGET_ROAS",
     "bidding_value_micros": 5000000,
-    "geo_targets": ["AR"],
+    "geo_targets": ["US", 1023191, 1016367],
     "languages": ["es"],
     "start_date": "2026-03-20",
-    "networks": { "search": true, "display": false, "partners": false }
+    "networks": { "search": true, "display": false, "partners": false },
+    "utm_params": { "source": "google", "medium": "cpc", "campaign": "nombre", "content": "ad_a", "term": "{keyword}" },
+    "audiences": [
+      { "type": "IN_MARKET|AFFINITY|CUSTOM_INTENT", "name": "Financial Products > Investing", "bid_modifier": 1.0, "urls": ["ejemplo.com"] }
+    ],
+    "device_bid_adjustments": { "desktop": 1.0, "mobile": 0.8, "tablet": 0.7 }
   },
   "ad_groups": [
     {
@@ -146,7 +152,13 @@ Cuando generes la estructura de campaña, usá EXACTAMENTE este formato JSON:
 }
 \`\`\`
 
-Budget y CPA van en micros (multiplicá por 1,000,000). Ej: $50 → 50000000.`;
+Budget y CPA van en micros (multiplicá por 1,000,000). Ej: $50 → 50000000.
+
+Campos opcionales:
+- **geo_targets**: Acepta códigos de país ISO ("US", "AR") o location IDs numéricos para ciudades/regiones (ej: 1023191 = New York, 1016367 = Los Angeles). Podés mezclar ambos.
+- **utm_params**: Parámetros UTM para tracking. Soporta macros de Google Ads como {keyword}, {campaignid}, {adgroupid}.
+- **audiences**: Segmentos de audiencia en modo observación. Tipos: IN_MARKET, AFFINITY, CUSTOM_INTENT. Para CUSTOM_INTENT incluir "urls" con sitios relevantes.
+- **device_bid_adjustments**: Ajustes de bid por dispositivo (1.0 = sin cambio, 0.8 = -20%, 1.2 = +20%).`;
 
 function truncateHistory(messages) {
   if (messages.length <= MAX_HISTORY_MESSAGES) return messages;
@@ -217,8 +229,8 @@ async function logUsage(userId, model, usage, endpoint) {
 /**
  * Llama al LLM con retry
  */
-async function callLLM(client, model, messages, userId = null, endpoint = 'chat', attempt = 1) {
-  try {
+async function callLLM(client, model, messages, userId = null, endpoint = 'chat') {
+  return withRetry(async () => {
     const response = await client.chat.completions.create({
       model,
       messages,
@@ -226,20 +238,10 @@ async function callLLM(client, model, messages, userId = null, endpoint = 'chat'
       max_tokens: 2000,
     });
 
-    // Log usage
     logUsage(userId, model, response.usage, endpoint);
 
     return response.choices[0].message.content;
-  } catch (err) {
-    const isRetryable = err.status === 429 || err.code === 'ETIMEDOUT' ||
-      err.code === 'ECONNRESET' || err.message?.includes('timeout');
-    if (isRetryable && attempt <= 2) {
-      const wait = attempt * 3000;
-      await new Promise(r => setTimeout(r, wait));
-      return callLLM(client, model, messages, userId, endpoint, attempt + 1);
-    }
-    throw err;
-  }
+  }, { maxRetries: 2, baseDelay: 3000 });
 }
 
 function detectStateTransition(assistantMessage, currentState) {

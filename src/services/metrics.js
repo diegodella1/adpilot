@@ -272,7 +272,82 @@ async function getGlobalMetrics(days = 30, userId = null) {
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
+async function syncAdGroupMetrics(userId) {
+  let customer;
+  try {
+    const { GoogleAdsApi } = require('google-ads-api');
+    const llm = require('./llm');
+    const settings = await llm.getSettings(userId);
+
+    const clientId = settings.gads_client_id || require('../config').googleAds.clientId;
+    const clientSecret = settings.gads_client_secret || require('../config').googleAds.clientSecret;
+    const devToken = settings.gads_dev_token || require('../config').googleAds.developerToken;
+    const refreshToken = settings.gads_refresh_token || require('../config').googleAds.refreshToken;
+    const customerId = settings.gads_customer_id || require('../config').googleAds.customerId;
+    const loginCustomerId = settings.gads_login_customer_id || require('../config').googleAds.loginCustomerId;
+
+    if (!clientId || !devToken || !refreshToken) {
+      return { synced: 0, error: 'Google Ads not configured' };
+    }
+
+    const client = new GoogleAdsApi({ client_id: clientId, client_secret: clientSecret, developer_token: devToken });
+    customer = client.Customer({ customer_id: customerId, login_customer_id: loginCustomerId, refresh_token: refreshToken });
+  } catch (e) {
+    return { synced: 0, error: e.message };
+  }
+
+  try {
+    const rows = await customer.query(`
+      SELECT
+        campaign.id,
+        ad_group.id,
+        ad_group.name,
+        segments.date,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.conversions,
+        metrics.cost_micros,
+        metrics.cost_per_conversion,
+        metrics.ctr
+      FROM ad_group
+      WHERE segments.date DURING LAST_90_DAYS
+        AND campaign.status != 'REMOVED'
+        AND ad_group.status != 'REMOVED'
+      ORDER BY segments.date DESC
+    `);
+
+    let synced = 0;
+    for (const row of rows) {
+      const record = {
+        campaign_id: String(row.campaign.id),
+        ad_group_id: String(row.ad_group.id),
+        ad_group_name: row.ad_group.name,
+        date: row.segments.date,
+        impressions: row.metrics.impressions || 0,
+        clicks: row.metrics.clicks || 0,
+        conversions: row.metrics.conversions || 0,
+        cost_micros: row.metrics.cost_micros || 0,
+        cpa_micros: row.metrics.cost_per_conversion || 0,
+        ctr: row.metrics.ctr || 0,
+        synced_at: new Date().toISOString(),
+        user_id: userId,
+      };
+
+      await supabase.from('adpilot_ad_group_metrics').upsert(record, {
+        onConflict: 'user_id,ad_group_id,date',
+      });
+      synced++;
+    }
+
+    console.log(`Ad group metrics sync complete for user ${userId}: ${synced} rows`);
+    return { synced, error: null };
+  } catch (e) {
+    console.error('Ad group metrics sync failed:', e.message);
+    return { synced: 0, error: e.message };
+  }
+}
+
 module.exports = {
   syncFromGoogleAds, getSummaries, getDailyMetrics, getGlobalMetrics,
-  updateSummaries, generateAlerts,
+  updateSummaries, generateAlerts, syncAdGroupMetrics,
 };

@@ -1,6 +1,7 @@
 const supabase = require('../db/supabase');
 const knowledge = require('./knowledge');
 const googleAds = require('./google-ads');
+const campaignManager = require('./campaign-manager');
 
 async function evaluateRules(userId) {
   let rulesQuery = supabase
@@ -131,71 +132,31 @@ async function executeOptimization(logId, userId = null) {
   if (!action) throw new Error('No action in payload');
 
   try {
-    const { customer, customerId } = await googleAds.listCampaigns(userId)
-      .then(() => require('./google-ads')) // just to validate connection
-      .catch(() => { throw new Error('Google Ads not configured'); });
-
-    // Get actual client for mutations
-    const llm = require('./llm');
-    const settings = await llm.getSettings(userId);
-    const { GoogleAdsApi } = require('google-ads-api');
-
-    const clientId = settings.gads_client_id || require('../config').googleAds.clientId;
-    const clientSecret = settings.gads_client_secret || require('../config').googleAds.clientSecret;
-    const devToken = settings.gads_dev_token || require('../config').googleAds.developerToken;
-    const refreshToken = settings.gads_refresh_token || require('../config').googleAds.refreshToken;
-    const custId = settings.gads_customer_id || require('../config').googleAds.customerId;
-    const loginCustId = settings.gads_login_customer_id || require('../config').googleAds.loginCustomerId;
-
-    if (!clientId || !devToken) throw new Error('Google Ads not configured');
-
-    const gadsClient = new GoogleAdsApi({
-      client_id: clientId,
-      client_secret: clientSecret,
-      developer_token: devToken,
-    });
-    const cust = gadsClient.Customer({
-      customer_id: custId,
-      login_customer_id: loginCustId,
-      refresh_token: refreshToken,
-    });
+    // Use shared getClient/getGadsCreds instead of duplicating client creation
+    const { customer: cust, customerId: custId } = await googleAds.getGadsCreds(userId);
 
     switch (action.type) {
       case 'pause_campaign':
-        await cust.campaigns.update([{
-          resource_name: `customers/${custId}/campaigns/${log.campaign_id}`,
-          status: 'PAUSED',
-        }]);
+        await campaignManager.updateStatus(log.campaign_id, 'PAUSED', userId);
         break;
 
       case 'enable_campaign':
-        await cust.campaigns.update([{
-          resource_name: `customers/${custId}/campaigns/${log.campaign_id}`,
-          status: 'ENABLED',
-        }]);
+        await campaignManager.updateStatus(log.campaign_id, 'ENABLED', userId);
         break;
 
       case 'adjust_budget':
         if (action.params?.new_budget_micros) {
-          const campaigns = await cust.query(`
-            SELECT campaign.campaign_budget
-            FROM campaign WHERE campaign.id = ${log.campaign_id}
-          `);
-          if (campaigns[0]) {
-            await cust.campaignBudgets.update([{
-              resource_name: campaigns[0].campaign.campaign_budget,
-              amount_micros: action.params.new_budget_micros,
-            }]);
-          }
+          await campaignManager.updateBudget(log.campaign_id, action.params.new_budget_micros, userId);
         }
         break;
 
       case 'pause_keyword':
         if (action.params?.keyword_id && action.params?.ad_group_id) {
-          await cust.adGroupCriteria.update([{
-            resource_name: `customers/${custId}/adGroupCriteria/${action.params.ad_group_id}~${action.params.keyword_id}`,
-            status: 'PAUSED',
-          }]);
+          const rn = `customers/${custId}/adGroupCriteria/${action.params.ad_group_id}~${action.params.keyword_id}`;
+          await googleAds.removeKeywords([rn], userId).catch(() => {
+            // Fallback: update status instead of remove
+            return cust.adGroupCriteria.update([{ resource_name: rn, status: 'PAUSED' }]);
+          });
         } else {
           throw new Error('pause_keyword requires keyword_id and ad_group_id in action params');
         }
@@ -210,6 +171,43 @@ async function executeOptimization(logId, userId = null) {
         } else {
           throw new Error('enable_keyword requires keyword_id and ad_group_id in action params');
         }
+        break;
+
+      case 'pause_ad_group':
+        if (!action.params?.ad_group_id) throw new Error('pause_ad_group requires ad_group_id');
+        await campaignManager.updateAdGroupStatus(log.campaign_id, action.params.ad_group_id, 'PAUSED', userId);
+        break;
+
+      case 'enable_ad_group':
+        if (!action.params?.ad_group_id) throw new Error('enable_ad_group requires ad_group_id');
+        await campaignManager.updateAdGroupStatus(log.campaign_id, action.params.ad_group_id, 'ENABLED', userId);
+        break;
+
+      case 'pause_ad':
+        if (!action.params?.ad_resource_name) throw new Error('pause_ad requires ad_resource_name');
+        await campaignManager.updateAdStatus(log.campaign_id, action.params.ad_resource_name, 'PAUSED', userId);
+        break;
+
+      case 'enable_ad':
+        if (!action.params?.ad_resource_name) throw new Error('enable_ad requires ad_resource_name');
+        await campaignManager.updateAdStatus(log.campaign_id, action.params.ad_resource_name, 'ENABLED', userId);
+        break;
+
+      case 'change_bidding_strategy':
+        if (!action.params?.strategy) throw new Error('change_bidding_strategy requires strategy');
+        await campaignManager.updateBidding(log.campaign_id, action.params.strategy, action.params.value_micros, userId);
+        break;
+
+      case 'add_negative_keyword':
+        if (!action.params?.text) throw new Error('add_negative_keyword requires text');
+        const scope = action.params.scope || 'campaign';
+        const targetId = action.params.target_id || log.campaign_id;
+        await campaignManager.addNegativeKeywords(scope, targetId, [action.params.text], userId);
+        break;
+
+      case 'update_device_bids':
+        if (!action.params?.adjustments) throw new Error('update_device_bids requires adjustments');
+        await campaignManager.updateDeviceBids(log.campaign_id, action.params.adjustments, userId);
         break;
 
       case 'alert':
@@ -356,4 +354,5 @@ module.exports = {
   evaluateRules, executeOptimization, llmAnalysis,
   getPendingRecommendations, resolveRecommendation,
   listRules, createRule, updateRule, deleteRule,
+  evaluateCondition, formatRecommendation, summarize,
 };

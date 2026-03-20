@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Allow: /docs
+Disallow: /api/
+
+Sitemap: https://adpilot.diegodella.ar/sitemap.xml

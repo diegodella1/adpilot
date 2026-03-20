@@ -12,6 +12,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const optimizerRoutes = require('./routes/optimizer');
 const analysisChatRoutes = require('./routes/analysis-chat');
 const keywordsRoutes = require('./routes/keywords');
+const campaignsRoutes = require('./routes/campaigns');
 
 const app = express();
 
@@ -99,6 +100,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/optimizer', optimizerRoutes);
 app.use('/api/analysis', analysisChatRoutes);
 app.use('/api/keywords', keywordsRoutes);
+app.use('/api', campaignsRoutes);
 
 // Aplicar rate limit LLM a endpoints que llaman al modelo
 app.use('/api/conversations/:id/messages', llmLimiter);
@@ -106,6 +108,14 @@ app.use('/api/analysis/chat', llmLimiter);
 
 // Static frontend
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// Public pages (no auth required)
+app.get('/docs', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'docs.html'));
+});
+app.get('/pitch', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'pitch.html'));
+});
 
 // SPA fallback
 app.get('*', (req, res) => {

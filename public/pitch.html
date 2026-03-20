@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdPilot — Pitch Deck</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #020617;
+      --bg-elevated: #0f172a;
+      --surface: rgba(15, 23, 42, 0.8);
+      --glass: rgba(15, 23, 42, 0.6);
+      --glass-border: rgba(148, 163, 184, 0.12);
+      --text: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-glow: rgba(59, 130, 246, 0.15);
+      --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.15);
+      --yellow: #eab308;
+      --yellow-dim: rgba(234, 179, 8, 0.15);
+      --red: #ef4444;
+      --red-dim: rgba(239, 68, 68, 0.15);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(59,130,246,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 100%, rgba(139,92,246,0.04) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Slide container ── */
+    .deck { position: relative; width: 100%; height: 100vh; z-index: 1; }
+    .slide {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 3rem 5vw;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.45s ease, transform 0.45s ease;
+      transform: translateX(40px);
+      overflow-y: auto;
+    }
+    .slide.active {
+      opacity: 1; pointer-events: auto; transform: translateX(0);
+    }
+
+    /* ── Typography ── */
+    .slide-num {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 0.5rem;
+    }
+    h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.1; margin-bottom: 0.5rem; }
+    h1 .gradient { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .tagline { font-size: clamp(1rem, 2.5vw, 1.35rem); color: var(--text-secondary); font-weight: 400; margin-bottom: 1.5rem; max-width: 700px; }
+    h2 { font-size: clamp(1.1rem, 2.5vw, 1.5rem); font-weight: 700; margin-bottom: 0.75rem; }
+    h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary); }
+    p, li { font-size: 0.88rem; line-height: 1.65; color: var(--text-secondary); }
+    strong { color: var(--text); font-weight: 600; }
+
+    /* ── Layout helpers ── */
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+    .cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 800px) { .cols, .cols-3 { grid-template-columns: 1fr; } }
+
+    /* ── Glass card ── */
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .card.accent-border { border-left: 3px solid var(--accent); }
+    .card.green-border { border-left: 3px solid var(--green); }
+    .card.yellow-border { border-left: 3px solid var(--yellow); }
+    .card.red-border { border-left: 3px solid var(--red); }
+
+    /* ── Stat block ── */
+    .stat { text-align: center; padding: 1rem; }
+    .stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text); }
+    .stat-value.accent { color: var(--accent); }
+    .stat-value.green { color: var(--green); }
+    .stat-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.08em; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin: 0.5rem 0; }
+    th { text-align: left; padding: 0.5rem 0.6rem; color: var(--text-dim); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--glass-border); }
+    td { padding: 0.45rem 0.6rem; border-bottom: 1px solid rgba(148,163,184,0.06); color: var(--text-secondary); }
+    td strong { color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    .check { color: var(--green); font-weight: 700; }
+    .cross { color: var(--text-dim); }
+
+    /* ── Quote block ── */
+    .quote {
+      border-left: 3px solid var(--accent);
+      padding: 0.75rem 1rem;
+      background: var(--accent-glow);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      margin: 0.75rem 0;
+      font-size: 0.88rem;
+      font-style: italic;
+      color: var(--text-secondary);
+    }
+    .quote strong { color: var(--text); font-style: normal; }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-block; font-size: 0.68rem; font-weight: 600;
+      padding: 0.2rem 0.6rem; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .badge.blue { background: var(--accent-glow); color: var(--accent); }
+    .badge.green { background: var(--green-dim); color: var(--green); }
+    .badge.yellow { background: var(--yellow-dim); color: var(--yellow); }
+
+    /* ── Flywheel diagram ── */
+    .flywheel {
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      padding: 1rem; flex-wrap: wrap;
+    }
+    .flywheel .step {
+      background: var(--accent-glow); border: 1px solid rgba(59,130,246,0.2);
+      padding: 0.4rem 0.8rem; border-radius: 20px;
+      font-size: 0.78rem; font-weight: 500; color: var(--accent);
+    }
+    .flywheel .arrow { color: var(--text-dim); font-size: 1.1rem; }
+
+    /* ── Bottom nav ── */
+    .nav-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      background: rgba(2,6,23,0.85); backdrop-filter: blur(12px);
+      border-top: 1px solid var(--glass-border);
+      z-index: 100;
+    }
+    .nav-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--text-dim); border: none; cursor: pointer;
+      transition: all 0.25s;
+    }
+    .nav-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); transform: scale(1.3); }
+    .nav-dot:hover { background: var(--text-secondary); }
+    .nav-label {
+      position: fixed; bottom: 3rem; left: 50%; transform: translateX(-50%);
+      font-size: 0.7rem; color: var(--text-dim); text-align: center;
+    }
+    .nav-arrows {
+      position: fixed; bottom: 0.75rem; right: 1.5rem;
+      display: flex; gap: 0.5rem; z-index: 101;
+    }
+    .nav-arrows button {
+      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--glass-border);
+      background: var(--glass); color: var(--text); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; transition: all 0.2s;
+    }
+    .nav-arrows button:hover { background: var(--accent-glow); border-color: var(--accent); }
+    .slide-counter {
+      position: fixed; bottom: 0.9rem; left: 1.5rem;
+      font-size: 0.72rem; color: var(--text-dim); z-index: 101;
+    }
+
+    /* ── Spacing ── */
+    .mt { margin-top: 1rem; }
+    .mt-sm { margin-top: 0.5rem; }
+    .mb { margin-bottom: 1rem; }
+    .gap-sm { gap: 0.75rem; }
+    ul { padding-left: 1.2rem; }
+    li { margin-bottom: 0.3rem; }
+
+    /* ── Hook special ── */
+    .hook-center {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; height: 100%;
+    }
+    .hook-center h1 { font-size: clamp(2.5rem, 6vw, 4rem); margin-bottom: 0.75rem; }
+    .hook-stat { font-size: clamp(3rem, 8vw, 5.5rem); font-weight: 800; color: var(--accent); line-height: 1; margin: 0.5rem 0; }
+    .hook-sub { font-size: clamp(0.85rem, 2vw, 1.1rem); color: var(--text-secondary); max-width: 600px; margin: 0 auto; }
+    .hook-footer { margin-top: 2rem; font-size: 0.8rem; color: var(--text-dim); }
+    .hook-footer strong { color: var(--text-secondary); }
+
+    .section-label {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 0.75rem;
+      padding-bottom: 0.4rem; border-bottom: 1px solid var(--glass-border);
+    }
+  </style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ════════ SLIDE 1: HOOK ════════ -->
+  <div class="slide active" data-slide="0">
+    <div class="hook-center">
+      <div class="slide-num">Slide 1 / 5 &mdash; El Hook</div>
+      <h1><span class="gradient">AdPilot</span></h1>
+      <p class="tagline" style="text-align:center;">Google Ads sin saber Google Ads.<br>Habl&aacute;, ejecut&aacute;, optimiz&aacute;.</p>
+      <div class="hook-stat">62%</div>
+      <p class="hook-sub">de las PyMEs quiere abandonar Google Ads.<br>No porque no funcione &mdash; porque no tienen tiempo, plata ni expertise para manejarlo.</p>
+      <div class="quote" style="max-width:620px; margin:1.5rem auto 0; text-align:left;">
+        <strong>MVP funcional completo</strong> &mdash; 27 m&oacute;dulos, integraci&oacute;n directa con Google Ads, IA conversacional &mdash; construido con <strong>USD 0</strong> de inversi&oacute;n, corriendo en hardware de <strong>USD 80</strong>.<br>
+        Si funciona en una Raspberry Pi, imaginate en un servidor real.
+      </div>
+      <div class="hook-footer"><strong>Diego Della Cagnoletta</strong> &middot; Solo founder &middot; Full-stack developer</div>
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 2: PROBLEMA + OPORTUNIDAD ════════ -->
+  <div class="slide" data-slide="1">
+    <div class="slide-num">Slide 2 / 5 &mdash; Problema + Oportunidad</div>
+    <h1>La herramienta de ventas m&aacute;s poderosa. <span class="gradient">Y la m&aacute;s hostil.</span></h1>
+    <div class="cols mt">
+      <div>
+        <div class="section-label">El dolor</div>
+        <div class="card accent-border">
+          <strong>Complejidad</strong>
+          <p>200+ configuraciones por campa&ntilde;a. El 56% de las PyMEs tiene menos de 1h/d&iacute;a para TODO el marketing.</p>
+        </div>
+        <div class="card accent-border">
+          <strong>Costo de entrada</strong>
+          <p>Agencia: USD 500&ndash;3,000/mes. Google recomienda USD 3,000&ndash;5,000/mes solo en ad spend.</p>
+        </div>
+        <div class="card accent-border">
+          <strong>Caja negra</strong>
+          <p>El 23% dice que su frustraci&oacute;n #1 es no saber qu&eacute; genera resultados.</p>
+        </div>
+        <div class="card accent-border">
+          <strong>Degradaci&oacute;n silenciosa</strong>
+          <p>Sin optimizaci&oacute;n activa, el CPA sube y el ROAS baja. La plata se quema sin aviso.</p>
+        </div>
+        <div class="quote">El 65% de las PyMEs no puede ejecutar marketing digital por falta de tiempo o presupuesto. No es que no quieran &mdash; es que no pueden.</div>
+      </div>
+      <div>
+        <div class="section-label">Mercado &mdash; Honesto</div>
+        <div class="card">
+          <table>
+            <tr><td><span class="badge blue">TAM</span></td><td>Ad spend digital LATAM 2026</td><td style="text-align:right"><strong>USD 50,100M</strong></td></tr>
+            <tr><td><span class="badge green">SAM</span></td><td>Herramientas PPC para PyMEs LATAM</td><td style="text-align:right"><strong>~USD 450M/a&ntilde;o</strong></td></tr>
+            <tr><td><span class="badge yellow">SOM</span></td><td>Capturable en 18 meses</td><td style="text-align:right"><strong>USD 390K ARR</strong></td></tr>
+          </table>
+        </div>
+        <div class="section-label mt">Beachhead</div>
+        <div class="card green-border">
+          <strong>E-commerce chicos de Argentina</strong>
+          <p>Venden por Instagram/ML, quieren su primer Google Ads. ~150K negocios activos. Ya gastan USD 200-500/mes en Meta.</p>
+          <p class="mt-sm"><strong>Dominar AR &rarr; Chile &rarr; M&eacute;xico &rarr; Colombia</strong></p>
+        </div>
+        <div class="section-label mt">Por qu&eacute; ahora</div>
+        <div class="card">
+          <ul>
+            <li><strong>LLMs baratos:</strong> GPT-4o-mini = USD 0.15/1K tokens (100x m&aacute;s barato que hace 2 a&ntilde;os)</li>
+            <li><strong>Google Ads API v16:</strong> Crear campa&ntilde;as programáticamente desde 2024</li>
+            <li><strong>LATAM sub-atendido:</strong> 0 herramientas conversacionales en espa&ntilde;ol</li>
+            <li><strong>Boom e-commerce:</strong> +25% en 2025. Cada nuevo negocio es un cliente</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 3: SOLUCIÓN ════════ -->
+  <div class="slide" data-slide="2">
+    <div class="slide-num">Slide 3 / 5 &mdash; Soluci&oacute;n + Diferenciadores</div>
+    <h1><span class="gradient">Copiloto de IA</span> que ejecuta, no recomienda</h1>
+    <p class="tagline">Dec&iacute; qu&eacute; vend&eacute;s, a qui&eacute;n y con cu&aacute;nto. La IA arma keywords, anuncios, bidding, geo, UTMs &mdash; y lo ejecuta directo en Google Ads. Despu&eacute;s optimiza 24/7.</p>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;" class="mt">
+      <div class="card accent-border">
+        <h3>Conversacional en espa&ntilde;ol</h3>
+        <p>Cero curva de aprendizaje. &ldquo;Quiero vender zapatillas en Buenos Aires con 500 pesos por d&iacute;a&rdquo; &rarr; campa&ntilde;a lista.</p>
+      </div>
+      <div class="card green-border">
+        <h3>Ejecuta, no recomienda</h3>
+        <p>No genera PDFs. CREA la campa&ntilde;a en Google Ads: budget, keywords, ads, geo, UTMs, audiencias &mdash; todo con un click.</p>
+      </div>
+      <div class="card yellow-border">
+        <h3>Optimizaci&oacute;n aut&oacute;noma</h3>
+        <p>&ldquo;Si CPA&gt;$10, pausar keyword&rdquo;. Guardrails anti-quema: pausa autom&aacute;tica si el gasto supera umbral sin resultados.</p>
+      </div>
+      <div class="card red-border">
+        <h3>Abogado del anunciante</h3>
+        <p>Google quiere que gastes M&Aacute;S. AdPilot quiere que gastes MEJOR. Te dice &ldquo;paus&aacute;, est&aacute;s tirando plata&rdquo;.</p>
+      </div>
+    </div>
+
+    <div class="cols mt">
+      <div>
+        <div class="section-label">Comparativa</div>
+        <div class="card" style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Feature</th><th>AdPilot</th><th>Optmyzr $208</th><th>WordStream $49</th><th>Agencia $500+</th></tr></thead>
+            <tbody>
+              <tr><td>Espa&ntilde;ol nativo</td><td class="check">Si</td><td class="cross">No</td><td class="cross">No</td><td>Depende</td></tr>
+              <tr><td>Creaci&oacute;n por chat</td><td class="check">Si</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td></tr>
+              <tr><td>Ejecuci&oacute;n directa</td><td class="check">Si</td><td class="check">Si</td><td class="cross">Solo recs</td><td class="check">Si</td></tr>
+              <tr><td>Guardrails anti-quema</td><td class="check">Si</td><td class="cross">No</td><td class="cross">No</td><td>Depende</td></tr>
+              <tr><td>An&aacute;lisis con IA</td><td class="check">Si</td><td class="cross">No</td><td class="cross">No</td><td>Manual</td></tr>
+              <tr><td>Multi-tenant</td><td class="check">Si</td><td class="check">Si</td><td class="cross">No</td><td>N/A</td></tr>
+              <tr><td><strong>Precio</strong></td><td><strong>~USD 29</strong></td><td>USD 208</td><td>USD 49</td><td>USD 500+</td></tr>
+              <tr><td><strong>Requiere expertise</strong></td><td><strong>No</strong></td><td>Si</td><td>Si</td><td>Si</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">El Moat: Data Flywheel</div>
+        <div class="card">
+          <div class="flywheel">
+            <span class="step">Campa&ntilde;a creada</span>
+            <span class="arrow">&rarr;</span>
+            <span class="step">M&eacute;tricas reales</span>
+            <span class="arrow">&rarr;</span>
+            <span class="step">Knowledge RAG</span>
+            <span class="arrow">&rarr;</span>
+            <span class="step">IA mejora</span>
+            <span class="arrow">&circlearrowleft;</span>
+          </div>
+          <p class="mt-sm">A las <strong>1,000 campa&ntilde;as</strong>, tenemos el dataset de &ldquo;qu&eacute; funciona en Google Ads para PyMEs LATAM&rdquo; que nadie m&aacute;s tiene. <strong>El c&oacute;digo se copia. Los datos, no.</strong></p>
+        </div>
+        <div class="section-label mt">Expansi&oacute;n</div>
+        <div class="card">
+          <table>
+            <tr><td><span class="badge green">Ahora</span></td><td>Google Ads (Search, Display, PMax)</td></tr>
+            <tr><td><span class="badge blue">Mes 9</span></td><td>Meta Ads (Facebook + Instagram)</td></tr>
+            <tr><td><span class="badge yellow">Mes 15</span></td><td>TikTok Ads + ML Ads</td></tr>
+          </table>
+          <p class="mt-sm" style="font-size:0.78rem;">El moat es la capa de IA, no el canal.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 4: NÚMEROS ════════ -->
+  <div class="slide" data-slide="3">
+    <div class="slide-num">Slide 4 / 5 &mdash; Los N&uacute;meros</div>
+    <h1>Unit economics <span class="gradient">stress-tested</span></h1>
+    <div class="cols mt">
+      <div>
+        <div class="section-label">Pricing</div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Plan</th><th>USD/mes</th><th>Target</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge blue">Free</span></td><td>0</td><td>Prueba sin riesgo</td></tr>
+              <tr><td><strong>Starter</strong></td><td><strong>29</strong></td><td>Emprendedores</td></tr>
+              <tr><td><strong>Growth</strong></td><td><strong>79</strong></td><td>PyMEs en crecimiento</td></tr>
+              <tr><td><strong>Agency</strong></td><td><strong>199</strong></td><td>Agencias digitales</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-label mt">ROI para el cliente</div>
+        <div class="card green-border">
+          <p>USD 300 ad spend &rarr; 15-30 leads &rarr; 2-3 ventas (ticket USD 100-200)</p>
+          <p class="mt-sm"><strong>Revenue: USD 200&ndash;600</strong> vs costo total USD 329</p>
+          <p class="mt-sm" style="font-size:0.78rem;">ROI positivo desde el mes 1. Mejora con optimizaci&oacute;n.</p>
+        </div>
+
+        <div class="section-label mt">Unit Economics</div>
+        <div class="card">
+          <table>
+            <tr><td>ARPU</td><td style="text-align:right"><strong>~USD 65/mes</strong></td></tr>
+            <tr><td>Costo LLM/usuario</td><td style="text-align:right">USD 3&ndash;8</td></tr>
+            <tr><td>Margen bruto</td><td style="text-align:right"><strong>~85%</strong> <span style="font-size:0.7rem; color:var(--green)">&gt;70% es excelente</span></td></tr>
+            <tr><td>CAC</td><td style="text-align:right">USD 100&ndash;150</td></tr>
+            <tr><td>Churn mensual</td><td style="text-align:right">7&ndash;8%</td></tr>
+            <tr><td>LTV</td><td style="text-align:right"><strong>~USD 930</strong></td></tr>
+            <tr><td>LTV:CAC</td><td style="text-align:right"><strong>6:1 &ndash; 9:1</strong> <span style="font-size:0.7rem; color:var(--green)">&gt;3:1 es saludable</span></td></tr>
+            <tr><td>Payback</td><td style="text-align:right"><strong>~2 meses</strong></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label">Proyecciones</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+          <div class="card" style="text-align:center;">
+            <div class="stat-label">Mes 4&ndash;6</div>
+            <div class="stat-value" style="font-size:1.4rem;">30</div>
+            <div class="stat-label">clientes</div>
+            <div style="font-size:0.85rem; color:var(--accent); font-weight:600; margin-top:0.3rem;">USD 1,950 MRR</div>
+          </div>
+          <div class="card" style="text-align:center;">
+            <div class="stat-label">Mes 9&ndash;12</div>
+            <div class="stat-value" style="font-size:1.4rem;">150</div>
+            <div class="stat-label">clientes</div>
+            <div style="font-size:0.85rem; color:var(--accent); font-weight:600; margin-top:0.3rem;">USD 9,750 MRR</div>
+          </div>
+          <div class="card" style="text-align:center;">
+            <div class="stat-label">Mes 18</div>
+            <div class="stat-value" style="font-size:1.4rem;">500</div>
+            <div class="stat-label">clientes</div>
+            <div style="font-size:0.85rem; color:var(--green); font-weight:600; margin-top:0.3rem;">USD 32,500 MRR</div>
+          </div>
+        </div>
+
+        <div class="card" style="text-align:center; padding:1rem;">
+          <div style="font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em;">Breakeven</div>
+          <div style="font-size:2.2rem; font-weight:800; color:var(--green);">13 clientes</div>
+          <div style="font-size:0.82rem; color:var(--text-secondary);">~USD 845/mes &middot; Timeline: Mes 2&ndash;3</div>
+        </div>
+
+        <div class="section-label mt">Supuestos stress-tested</div>
+        <div class="card">
+          <ul>
+            <li>Mix: 60% Starter, 30% Growth, 10% Agency</li>
+            <li>Churn: 10% &rarr; 7% &rarr; 5% (mejora con retenci&oacute;n)</li>
+            <li>Crecimiento: 12&ndash;15% MoM org&aacute;nico</li>
+            <li><strong>Palanca:</strong> 1 agencia = 10-50 cuentas</li>
+          </ul>
+        </div>
+
+        <div class="section-label mt">Equipo (atado a revenue)</div>
+        <div class="card">
+          <table>
+            <tr><td>50 clientes</td><td>Community manager PT</td></tr>
+            <tr><td>150 clientes</td><td>Developer PT</td></tr>
+            <tr><td>300 clientes</td><td>Primer hire FT</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ SLIDE 5: ASK ════════ -->
+  <div class="slide" data-slide="4">
+    <div class="slide-num">Slide 5 / 5 &mdash; El Ask</div>
+    <h1>Qu&eacute; necesitamos para <span class="gradient">lanzar</span></h1>
+    <div class="cols-3 mt">
+      <!-- Tech -->
+      <div>
+        <div class="section-label">Desarrollo</div>
+        <div class="card accent-border">
+          <h3 style="color:var(--accent);">MVP listo &mdash; 27 m&oacute;dulos</h3>
+          <ul>
+            <li>Google Ads API v16 integrada</li>
+            <li>IA conversacional + RAG</li>
+            <li>Multi-tenant + AES-256</li>
+            <li>Corre en hardware de USD 80</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Para producci&oacute;n (5 semanas)</h3>
+          <ul>
+            <li>OAuth2 self-service (2 sem)</li>
+            <li>Deploy VPS + dominio (1 sem)</li>
+            <li>Cron m&eacute;tricas (3 d&iacute;as)</li>
+            <li>Landing + waitlist (1 sem)</li>
+            <li>Guardrails anti-quema (1 sem)</li>
+            <li>Email transaccional (1 sem)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Comercial -->
+      <div>
+        <div class="section-label">Comercial</div>
+        <div class="card green-border">
+          <h3 style="color:var(--green);">Canal 1: Agencias boutique</h3>
+          <p>1 agencia = 10-50 cuentas.<br>5 agencias = primer milestone.<br>White-label con plan Agency.</p>
+        </div>
+        <div class="card">
+          <h3>Canal 2: Content</h3>
+          <p>Blog SEO + video demos con cron&oacute;metro real. Comunidades LATAM.</p>
+        </div>
+        <div class="card">
+          <h3>Canal 3: Referidos</h3>
+          <p>20% comisi&oacute;n. Freelancers de marketing como embajadores.</p>
+        </div>
+        <div class="card yellow-border">
+          <h3 style="color:var(--yellow);">Validaci&oacute;n Semana 0</h3>
+          <p>5 compromisos de beta testers + landing con waitlist + 1 case study real.</p>
+        </div>
+      </div>
+
+      <!-- Inversión -->
+      <div>
+        <div class="section-label">Inversi&oacute;n</div>
+        <div class="card accent-border">
+          <h3>M&iacute;nimo viable</h3>
+          <table>
+            <tr><td>VPS 6 meses</td><td style="text-align:right">USD 180</td></tr>
+            <tr><td>Dominio + SSL</td><td style="text-align:right">USD 50</td></tr>
+            <tr><td>APIs (LLM + Ads)</td><td style="text-align:right">USD 500</td></tr>
+            <tr><td>Marketing</td><td style="text-align:right">USD 300</td></tr>
+            <tr style="border-top:1px solid var(--glass-border)"><td><strong>Total</strong></td><td style="text-align:right"><strong>USD 1,030</strong></td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Acelerado</h3>
+          <table>
+            <tr><td>M&iacute;nimo viable</td><td style="text-align:right">USD 1,030</td></tr>
+            <tr><td>Video + UX + Ads</td><td style="text-align:right">USD 1,700</td></tr>
+            <tr style="border-top:1px solid var(--glass-border)"><td><strong>Total</strong></td><td style="text-align:right"><strong>USD 2,730</strong></td></tr>
+          </table>
+        </div>
+        <div class="card green-border">
+          <h3 style="color:var(--green);">Mitigaci&oacute;n de riesgo</h3>
+          <ul>
+            <li><strong>Money-back</strong> si 0 leads en 30 d&iacute;as</li>
+            <li><strong>Free tier</strong> para probar sin pagar</li>
+            <li><strong>Breakeven</strong> en 13 clientes</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="card mt" style="text-align:center; padding:1.25rem;">
+      <div style="display:flex; align-items:center; justify-content:center; gap:1rem; flex-wrap:wrap;">
+        <div><span class="badge blue">Sem 0</span><br><span style="font-size:0.78rem;">5 beta testers</span></div>
+        <span style="color:var(--text-dim);">&rarr;</span>
+        <div><span class="badge blue">Sem 1-2</span><br><span style="font-size:0.78rem;">Deploy + OAuth</span></div>
+        <span style="color:var(--text-dim);">&rarr;</span>
+        <div><span class="badge blue">Sem 3-4</span><br><span style="font-size:0.78rem;">Beta privada</span></div>
+        <span style="color:var(--text-dim);">&rarr;</span>
+        <div><span class="badge green">Sem 5</span><br><span style="font-size:0.78rem;">Case study real</span></div>
+        <span style="color:var(--text-dim);">&rarr;</span>
+        <div><span class="badge green">Mes 2</span><br><span style="font-size:0.78rem;">Apertura p&uacute;blica</span></div>
+      </div>
+      <div class="quote mt" style="display:inline-block; max-width:600px; text-align:left;">
+        <strong>La pregunta no es &ldquo;&iquest;funciona?&rdquo;</strong> &mdash; ya funciona.<br>
+        <strong>La pregunta es &ldquo;&iquest;cu&aacute;ntos negocios lo necesitan?&rdquo;</strong> &mdash; y eso se responde con una beta, no con slides.
+      </div>
+      <p class="mt" style="font-size:1rem; color:var(--text); font-weight:600;">Solo falta decir: <span style="color:var(--accent); font-size:1.1rem;">&ldquo;Dale, mandalo.&rdquo;</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Navigation ── -->
+<div class="slide-counter" id="counter">1 / 5</div>
+<div class="nav-bar">
+  <button class="nav-dot active" data-goto="0"></button>
+  <button class="nav-dot" data-goto="1"></button>
+  <button class="nav-dot" data-goto="2"></button>
+  <button class="nav-dot" data-goto="3"></button>
+  <button class="nav-dot" data-goto="4"></button>
+</div>
+<div class="nav-arrows">
+  <button id="prev" title="Anterior">&larr;</button>
+  <button id="next" title="Siguiente">&rarr;</button>
+</div>
+
+<script>
+(function() {
+  const slides = document.querySelectorAll('.slide');
+  const dots = document.querySelectorAll('.nav-dot');
+  const counter = document.getElementById('counter');
+  let current = 0;
+  const total = slides.length;
+
+  function go(n) {
+    if (n < 0 || n >= total || n === current) return;
+    slides[current].classList.remove('active');
+    dots[current].classList.remove('active');
+    current = n;
+    slides[current].classList.add('active');
+    dots[current].classList.add('active');
+    counter.textContent = (current + 1) + ' / ' + total;
+    slides[current].scrollTop = 0;
+  }
+
+  document.getElementById('next').addEventListener('click', () => go(current + 1));
+  document.getElementById('prev').addEventListener('click', () => go(current - 1));
+  dots.forEach(d => d.addEventListener('click', () => go(+d.dataset.goto)));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(current + 1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); go(current - 1); }
+    if (e.key === 'Home') go(0);
+    if (e.key === 'End') go(total - 1);
+  });
+
+  // Touch swipe
+  let tx = 0;
+  document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 60) dx < 0 ? go(current + 1) : go(current - 1);
+  });
+})();
+</script>
+</body>
+</html>

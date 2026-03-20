@@ -2,6 +2,7 @@ const supabase = require('../db/supabase');
 const googleAds = require('./google-ads');
 const conversation = require('./conversation');
 const knowledge = require('./knowledge');
+const campaignManager = require('./campaign-manager');
 
 const MAX_BUDGET_MICROS = 500_000_000;
 const MAX_KEYWORDS_PER_GROUP = 50;
@@ -24,6 +25,15 @@ function validateDraft(draft) {
   if (!draft?.ad_groups?.length) errors.push('Falta al menos un ad group');
   if (draft?.ad_groups?.length > MAX_AD_GROUPS) {
     errors.push(`Máximo ${MAX_AD_GROUPS} ad groups`);
+  }
+
+  // Validate geo_targets: accept strings (country codes) and numbers (location IDs)
+  if (draft?.campaign?.geo_targets?.length) {
+    for (const geo of draft.campaign.geo_targets) {
+      if (typeof geo !== 'string' && typeof geo !== 'number') {
+        errors.push(`geo_target inválido: "${geo}". Usar código de país (ej: "US") o location ID numérico`);
+      }
+    }
   }
 
   for (const ag of draft?.ad_groups || []) {
@@ -127,6 +137,23 @@ async function execute(conversationId, userId) {
       payload: { result },
       user_id: userId,
     });
+
+    // Post-creation: apply audiences, device bids, UTMs if present in draft
+    if (result.campaignId) {
+      try {
+        if (conv.draft.campaign.audiences?.length) {
+          await campaignManager.addAudienceSegments(result.campaignId, conv.draft.campaign.audiences, userId);
+        }
+        if (conv.draft.campaign.device_bid_adjustments) {
+          await campaignManager.updateDeviceBids(result.campaignId, conv.draft.campaign.device_bid_adjustments, userId);
+        }
+        if (conv.draft.campaign.utm_params) {
+          await campaignManager.applyUtmToCampaign(result.campaignId, conv.draft.campaign.utm_params, userId);
+        }
+      } catch (postErr) {
+        result.errors.push({ post_creation: postErr.message });
+      }
+    }
 
     knowledge.learnFromConversation(conv, userId).catch(e =>
       console.warn('Auto-learn failed:', e.message)

@@ -52,6 +52,28 @@ router.post('/setup', async (req, res) => {
   }
 });
 
+// Lead capture — público (landing page free trial)
+router.post('/lead', async (req, res) => {
+  try {
+    const { name, email, use_case, role } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email required' });
+
+    const supabase = require('../db/supabase');
+    await supabase.from('adpilot_leads').upsert({
+      email: email.toLowerCase().trim(),
+      name: name?.trim() || null,
+      use_case: use_case?.trim() || null,
+      role: role?.trim() || null,
+    }, { onConflict: 'email' });
+
+    res.json({ ok: true });
+  } catch (err) {
+    // Don't leak errors on public endpoint
+    console.error('Lead capture error:', err.message);
+    res.json({ ok: true }); // Always return success to user
+  }
+});
+
 // Me — retorna user autenticado
 router.get('/me', authMiddleware, async (req, res) => {
   res.json({ user: req.user });

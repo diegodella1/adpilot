@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdPilot — Documentaci&oacute;n: API, configuraci&oacute;n y funcionalidades</title>
+  <meta name="description" content="Documentaci&oacute;n de AdPilot: API REST completa, configuraci&oacute;n de Google Ads, reglas de automatizaci&oacute;n, geo-targeting por ciudad, UTM tracking y m&aacute;s.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://adpilot.diegodella.ar/docs">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #020617; --bg-elevated: #0f172a; --surface2: rgba(30,41,59,0.6);
+      --glass: rgba(15,23,42,0.6); --glass-border: rgba(148,163,184,0.12);
+      --border: rgba(148,163,184,0.1); --border-strong: rgba(148,163,184,0.2);
+      --text: #f8fafc; --text-secondary: #94a3b8; --text-dim: #64748b;
+      --accent: #3b82f6; --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      --green: #22c55e; --green-dim: rgba(34,197,94,0.15);
+      --red: #ef4444; --radius: 12px; --radius-sm: 8px;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse 60% 40% at 10% 20%, rgba(59,130,246,0.06), transparent),
+                  radial-gradient(ellipse 50% 50% at 90% 80%, rgba(139,92,246,0.04), transparent);
+    }
+    .docs-container {
+      max-width: 860px; margin: 0 auto; padding: 40px 24px 60px; position: relative; z-index: 1;
+    }
+    .docs-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+    }
+    .docs-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; }
+    .docs-header h1 span { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .docs-subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 32px; }
+    .docs-back { color: var(--accent); text-decoration: none; font-size: 13px; display: inline-block; margin-bottom: 24px; }
+    .docs-back:hover { text-decoration: underline; }
+    .card {
+      background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--glass-border);
+      border-radius: var(--radius); padding: 24px; margin-bottom: 12px;
+    }
+    .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+    .card p, .card li { color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+    .card ul, .card ol { padding-left: 20px; }
+    .card ul { list-style: disc; }
+    code {
+      background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--accent);
+    }
+    h2 { font-size: 16px; margin: 28px 0 12px; color: var(--text); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; padding: 8px 10px; background: var(--surface2); color: var(--text-dim); font-weight: 600; }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+    .section-grid { display: grid; gap: 12px; margin-bottom: 16px; }
+    .section-grid .card { margin-bottom: 0; }
+    .section-grid .card h3 { font-size: 14px; margin-bottom: 6px; }
+    .footer { padding: 16px 0; color: var(--text-dim); font-size: 12px; line-height: 1.8; }
+    @media (max-width: 768px) { .docs-container { padding: 24px 16px 40px; } .card { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="docs-container">
+    <a href="/" class="docs-back">&larr; Volver a AdPilot</a>
+
+    <div class="docs-header">
+      <svg width="32" height="32" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="url(#g1)"/><path d="M12 28V16l8-6 8 6v12l-8-4-8 4z" fill="rgba(255,255,255,0.95)"/><defs><linearGradient id="g1" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#3b82f6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+      <h1>Ad<span>Pilot</span></h1>
+    </div>
+    <p class="docs-subtitle">Documentaci&oacute;n completa &mdash; Funcionalidades, API y configuraci&oacute;n</p>
+
+    <div class="card">
+      <h3>Setup inicial</h3>
+      <ol>
+        <li>Haz clic en <strong style="color:var(--text)">&ldquo;Primer uso? Crear admin&rdquo;</strong> en la pantalla de login.</li>
+        <li>Configura el proveedor LLM (OpenAI o OpenRouter) con su API key y modelo en <strong style="color:var(--text)">Admin</strong>.</li>
+        <li>Configura las credenciales de <strong style="color:var(--text)">Google Ads</strong> (Client ID, Secret, Developer Token, Refresh Token, Customer ID).</li>
+        <li>Sin Google Ads, AdPilot funciona como copiloto: genera estructuras de campa&ntilde;a para crear manualmente.</li>
+      </ol>
+    </div>
+
+    <h2>M&oacute;dulos de la plataforma</h2>
+    <div class="section-grid">
+      <div class="card"><h3>Chat &mdash; Creaci&oacute;n de campa&ntilde;as</h3><p>Describe tu campa&ntilde;a en lenguaje natural. El agente IA gu&iacute;a paso a paso, genera la estructura completa en JSON y la ejecuta en Google Ads. Soporta Search, Performance Max, Display y Video.</p></div>
+      <div class="card"><h3>Campa&ntilde;as &mdash; Gesti&oacute;n de campa&ntilde;as activas</h3><p>Panel completo para ver y editar campa&ntilde;as activas: presupuesto, bidding, geo-targeting por ciudad, keywords, negative keywords, audiencias, device bids, UTMs. Todo inline sin entrar a Google Ads.</p></div>
+      <div class="card"><h3>Dashboard &mdash; M&eacute;tricas en tiempo real</h3><p>KPIs globales (spend, clicks, conversiones, CPA, CTR, ROAS), gr&aacute;fico de tendencia, tabla de campa&ntilde;as con alertas autom&aacute;ticas. Sincronizaci&oacute;n on-demand desde Google Ads.</p></div>
+      <div class="card"><h3>Analizar &mdash; Chat de optimizaci&oacute;n</h3><p>Chat con IA especializado en an&aacute;lisis de rendimiento. Accede a m&eacute;tricas, identifica problemas y ejecuta acciones de optimizaci&oacute;n directamente desde la conversaci&oacute;n.</p></div>
+      <div class="card"><h3>Reglas &mdash; Motor de automatizaci&oacute;n</h3><p>Reglas condicionales que eval&uacute;an m&eacute;tricas y ejecutan acciones autom&aacute;ticamente o con aprobaci&oacute;n. Soporta pausar/activar a nivel campa&ntilde;a, ad group y ad, cambiar bidding, agregar negativas, ajustar device bids y m&aacute;s.</p></div>
+      <div class="card"><h3>Keywords &mdash; Investigaci&oacute;n</h3><p>Ideas de keywords desde Google Ads Keyword Planner con volumen de b&uacute;squeda, competencia y CPC estimado.</p></div>
+      <div class="card"><h3>Knowledge &mdash; Base de conocimiento</h3><p>Base vectorial con embeddings que se alimenta autom&aacute;ticamente de cada campa&ntilde;a y optimizaci&oacute;n ejecutada.</p></div>
+      <div class="card"><h3>Admin &mdash; Configuraci&oacute;n</h3><p>Credenciales (encriptadas AES-256), proveedor LLM, master prompt, business context, gesti&oacute;n de usuarios con l&iacute;mites de consumo.</p></div>
+    </div>
+
+    <h2>Gesti&oacute;n de campa&ntilde;as activas</h2>
+
+    <div class="card">
+      <h3>Geo-targeting por ciudad</h3>
+      <p>Targeting geogr&aacute;fico granular: pa&iacute;ses completos (c&oacute;digo ISO) y ciudades espec&iacute;ficas (location IDs de Google Ads).</p>
+      <ul>
+        <li><code>GET /api/locations/search?q=miami</code> &mdash; Buscar ciudades (retorna criterion ID)</li>
+        <li><code>PUT /api/campaigns/:id/geo-targets</code> &mdash; Reemplazar geo targets con <code>{ targets: [1023191, 1016367] }</code></li>
+        <li>En creaci&oacute;n, el LLM puede mezclar: <code>geo_targets: ["US", 1023191]</code></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Presupuesto, bidding y status</h3>
+      <ul>
+        <li><code>PUT /api/campaigns/:id/budget</code> &mdash; <code>{ budget_micros: 50000000 }</code> ($50/d&iacute;a)</li>
+        <li><code>PUT /api/campaigns/:id/bidding</code> &mdash; <code>{ strategy: "TARGET_CPA", value_micros: 5000000 }</code></li>
+        <li><code>PUT /api/campaigns/:id/status</code> &mdash; <code>{ status: "PAUSED" | "ENABLED" }</code></li>
+        <li>Strategies: TARGET_CPA, MAXIMIZE_CONVERSIONS, MAXIMIZE_CLICKS, TARGET_ROAS</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Keywords y negative keywords</h3>
+      <ul>
+        <li><code>POST /api/campaigns/:id/ad-groups/:agId/keywords</code> &mdash; Agregar keywords con match type</li>
+        <li><code>DELETE /api/campaigns/:id/ad-groups/:agId/keywords/:kwId</code> &mdash; Eliminar keyword</li>
+        <li><code>POST /api/campaigns/:id/ad-groups/:agId/negative-keywords</code> &mdash; Agregar negativas</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>UTM Tracking</h3>
+      <p>Aplicar o cambiar UTMs en campa&ntilde;as activas. Los ads RSA de Google son inmutables: AdPilot crea ads nuevos con las URLs actualizadas y pausa los anteriores autom&aacute;ticamente.</p>
+      <ul>
+        <li><code>PUT /api/campaigns/:id/utm</code> &mdash; <code>{ utm_params: { source, medium, campaign, content, term } }</code></li>
+        <li>Soporta macros de Google Ads: <code>{keyword}</code>, <code>{campaignid}</code></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Audiencias, device bids y remarketing</h3>
+      <ul>
+        <li><code>GET /api/audiences/search?q=investing</code> &mdash; Buscar segmentos (In-Market, Affinity)</li>
+        <li><code>POST /api/campaigns/:id/audiences</code> &mdash; Agregar en modo observaci&oacute;n</li>
+        <li><code>PUT /api/campaigns/:id/devices</code> &mdash; <code>{ adjustments: { desktop: 1.0, mobile: 0.8 } }</code></li>
+        <li><code>POST /api/campaigns/:id/remarketing</code> &mdash; Agregar lista de remarketing</li>
+      </ul>
+    </div>
+
+    <h2>API REST completa</h2>
+
+    <div class="card" style="overflow-x:auto">
+      <table>
+        <thead><tr><th>M&eacute;todo</th><th>Endpoint</th><th>Descripci&oacute;n</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td>/api/campaigns</td><td>Listar campa&ntilde;as</td></tr>
+          <tr><td>GET</td><td>/api/campaigns/:id</td><td>Detalle (budget, bidding, geo)</td></tr>
+          <tr><td>PUT</td><td>/api/campaigns/:id/geo-targets</td><td>Reemplazar geo targets</td></tr>
+          <tr><td>PUT</td><td>/api/campaigns/:id/budget</td><td>Cambiar presupuesto</td></tr>
+          <tr><td>PUT</td><td>/api/campaigns/:id/bidding</td><td>Cambiar bidding strategy</td></tr>
+          <tr><td>PUT</td><td>/api/campaigns/:id/status</td><td>Pausar/activar</td></tr>
+          <tr><td>GET</td><td>/api/campaigns/:id/ad-groups</td><td>Listar ad groups</td></tr>
+          <tr><td>PUT</td><td>/api/campaigns/:id/ad-groups/:agId/status</td><td>Pausar/activar ad group</td></tr>
+          <tr><td>POST</td><td>/api/campaigns/:id/ad-groups/:agId/keywords</td><td>Agregar keywords</td></tr>
+          <tr><td>DELETE</td><td>/api/campaigns/:id/ad-groups/:agId/keywords/:kwId</td><td>Eliminar keyword</td></tr>
+          <tr><td>PUT</td><td>/api/campaigns/:id/ad-groups/:agId/ads/:adId/status</td><td>Pausar/activar ad</td></tr>
+          <tr><td>PUT</td><td>/api/campaigns/:id/utm</td><td>Aplicar UTMs</td></tr>
+          <tr><td>GET</td><td>/api/locations/search?q=</td><td>Buscar ubicaciones</td></tr>
+          <tr><td>POST</td><td>/api/campaigns/:id/audiences</td><td>Agregar audiencias</td></tr>
+          <tr><td>PUT</td><td>/api/campaigns/:id/devices</td><td>Ajustar device bids</td></tr>
+          <tr><td>POST</td><td>/api/campaigns/:id/remarketing</td><td>Agregar remarketing</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px">Todos los endpoints requieren autenticaci&oacute;n via Bearer token.</p>
+    </div>
+
+    <h2>Seguridad</h2>
+    <div class="card">
+      <ul>
+        <li>Credenciales encriptadas con AES-256 en base de datos</li>
+        <li>Autenticaci&oacute;n JWT con expiraci&oacute;n de 24 horas</li>
+        <li>Rate limiting: 120 req/min global, 15 req/min para endpoints LLM</li>
+        <li>Multi-tenant con aislamiento completo por usuario</li>
+        <li>L&iacute;mites de consumo LLM configurables por usuario</li>
+        <li>Headers de seguridad: X-Content-Type-Options, X-Frame-Options, Referrer-Policy</li>
+        <li>Protecci&oacute;n contra prompt injection en el system prompt del LLM</li>
+        <li>Rollback autom&aacute;tico de campa&ntilde;a si todos los ad groups fallan</li>
+      </ul>
+    </div>
+
+    <div class="footer">
+      <strong>Stack:</strong> Node.js + Express + Supabase + pgvector &nbsp;|&nbsp;
+      <strong>LLM:</strong> OpenAI / OpenRouter &nbsp;|&nbsp;
+      <strong>API:</strong> Google Ads API v18 &nbsp;|&nbsp;
+      <strong>Auth:</strong> JWT + bcrypt
+    </div>
+  </div>
+</body>
+</html>

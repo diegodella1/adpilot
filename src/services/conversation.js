@@ -122,4 +122,13 @@ async function update(id, data) {
   if (error) throw error;
 }
 
-module.exports = { create, get, list, processMessage, update };
+async function remove(id, userId) {
+  const { error } = await supabase
+    .from('adpilot_conversations')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+module.exports = { create, get, list, processMessage, update, remove };
