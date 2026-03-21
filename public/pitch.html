@@ -7,47 +7,69 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
     :root {
-      --bg: #020617;
-      --bg-elevated: #0f172a;
-      --surface: rgba(15, 23, 42, 0.8);
-      --glass: rgba(15, 23, 42, 0.6);
-      --glass-border: rgba(148, 163, 184, 0.12);
-      --text: #f8fafc;
-      --text-secondary: #94a3b8;
-      --text-dim: #64748b;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --accent-glow: rgba(59, 130, 246, 0.15);
-      --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      --green: #22c55e;
-      --green-dim: rgba(34, 197, 94, 0.15);
-      --yellow: #eab308;
-      --yellow-dim: rgba(234, 179, 8, 0.15);
-      --red: #ef4444;
-      --red-dim: rgba(239, 68, 68, 0.15);
-      --radius: 12px;
-      --radius-sm: 8px;
+      --bg: #07080D;
+      --bg-elevated: #0D0F17;
+      --surface: rgba(13, 15, 23, 0.85);
+      --glass: rgba(16, 19, 30, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.06);
+      --glass-border-hover: rgba(255, 255, 255, 0.12);
+      --text: #F0F2F5;
+      --text-secondary: #8B92A5;
+      --text-dim: #525A6E;
+      --accent: #6366F1;
+      --accent-light: #818CF8;
+      --accent-glow: rgba(99, 102, 241, 0.12);
+      --accent-glow-strong: rgba(99, 102, 241, 0.25);
+      --accent-gradient: linear-gradient(135deg, #6366F1 0%, #A855F7 50%, #EC4899 100%);
+      --green: #10B981;
+      --green-dim: rgba(16, 185, 129, 0.12);
+      --green-glow: rgba(16, 185, 129, 0.08);
+      --yellow: #F59E0B;
+      --yellow-dim: rgba(245, 158, 11, 0.12);
+      --red: #EF4444;
+      --red-dim: rgba(239, 68, 68, 0.10);
+      --cyan: #06B6D4;
+      --cyan-dim: rgba(6, 182, 212, 0.12);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-xs: 6px;
     }
 
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif;
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       height: 100vh;
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
+
+    /* ── Ambient background ── */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
       background:
-        radial-gradient(ellipse at 20% 0%, rgba(59,130,246,0.06) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 100%, rgba(139,92,246,0.04) 0%, transparent 60%);
+        radial-gradient(ellipse 80% 60% at 10% -10%, rgba(99,102,241,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 110%, rgba(168,85,247,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse 40% 40% at 50% 50%, rgba(6,182,212,0.03) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Noise overlay ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.018;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       pointer-events: none;
       z-index: 0;
     }
@@ -57,157 +79,304 @@
     .slide {
       position: absolute; inset: 0;
       display: flex; flex-direction: column; justify-content: center;
-      padding: 3rem 5vw;
+      padding: 2.5rem 4vw 4rem;
       opacity: 0; pointer-events: none;
-      transition: opacity 0.45s ease, transform 0.45s ease;
-      transform: translateX(40px);
+      transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1), transform 0.5s cubic-bezier(0.4,0,0.2,1);
+      transform: translateY(12px) scale(0.995);
       overflow-y: auto;
     }
     .slide.active {
-      opacity: 1; pointer-events: auto; transform: translateX(0);
+      opacity: 1; pointer-events: auto; transform: translateY(0) scale(1);
     }
+    /* ── Slide 5 compact (fit in viewport) ── */
+    .slide.slide-compact {
+      justify-content: flex-start;
+      padding: 1.2rem 3vw 1.2rem;
+    }
+    .slide-compact h1 { font-size: clamp(1.2rem, 3vw, 1.8rem); margin-bottom: 0.4rem; }
+    .slide-compact .cols-3 { gap: 0.7rem; }
+    .slide-compact .card { padding: 0.6rem 0.8rem; margin-bottom: 0.35rem; border-radius: var(--radius-sm); }
+    .slide-compact .card h3 { font-size: 0.7rem; margin-bottom: 0.2rem; }
+    .slide-compact .card p,
+    .slide-compact .card li { font-size: 0.68rem; line-height: 1.45; }
+    .slide-compact .card table { font-size: 0.66rem; margin: 0.2rem 0; }
+    .slide-compact .card table td { padding: 0.15rem 0; }
+    .slide-compact .section-label { font-size: 0.5rem; margin-bottom: 0.3rem; padding-top: 0; }
+    .slide-compact .slide-num { margin-bottom: 0.3rem; }
+    .slide-compact .badge { font-size: 0.52rem; padding: 0.15rem 0.5rem; }
+    .slide-compact .quote { font-size: 0.7rem; }
+    .slide-compact .mt { margin-top: 0.5rem; }
 
     /* ── Typography ── */
     .slide-num {
-      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
-      color: var(--accent); margin-bottom: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--accent-light); margin-bottom: 0.75rem;
+      display: flex; align-items: center; gap: 0.5rem;
     }
-    h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.1; margin-bottom: 0.5rem; }
-    h1 .gradient { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .tagline { font-size: clamp(1rem, 2.5vw, 1.35rem); color: var(--text-secondary); font-weight: 400; margin-bottom: 1.5rem; max-width: 700px; }
-    h2 { font-size: clamp(1.1rem, 2.5vw, 1.5rem); font-weight: 700; margin-bottom: 0.75rem; }
-    h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary); }
-    p, li { font-size: 0.88rem; line-height: 1.65; color: var(--text-secondary); }
+    .slide-num::before {
+      content: '';
+      width: 20px; height: 1px;
+      background: var(--accent);
+    }
+    h1 {
+      font-size: clamp(1.8rem, 4.5vw, 3rem);
+      font-weight: 800; line-height: 1.12;
+      margin-bottom: 0.6rem;
+      letter-spacing: -0.025em;
+    }
+    h1 .gradient {
+      background: var(--accent-gradient);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .tagline {
+      font-size: clamp(0.9rem, 2vw, 1.15rem);
+      color: var(--text-secondary); font-weight: 400;
+      margin-bottom: 1.25rem; max-width: 700px;
+      line-height: 1.6;
+    }
+    h2 { font-size: clamp(1rem, 2.2vw, 1.35rem); font-weight: 700; margin-bottom: 0.6rem; letter-spacing: -0.01em; }
+    h3 { font-size: 0.82rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text); letter-spacing: -0.01em; }
+    p, li { font-size: 0.82rem; line-height: 1.65; color: var(--text-secondary); }
     strong { color: var(--text); font-weight: 600; }
 
-    /* ── Layout helpers ── */
-    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-    .cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
-    @media (max-width: 800px) { .cols, .cols-3 { grid-template-columns: 1fr; } }
+    /* ── Layout ── */
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; }
+    .cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; }
+    @media (max-width: 900px) { .cols, .cols-3 { grid-template-columns: 1fr; } }
 
     /* ── Glass card ── */
     .card {
       background: var(--glass);
       border: 1px solid var(--glass-border);
       border-radius: var(--radius);
-      padding: 1.25rem;
-      margin-bottom: 0.75rem;
+      padding: 1.1rem 1.25rem;
+      margin-bottom: 0.6rem;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.3s, box-shadow 0.3s;
     }
-    .card.accent-border { border-left: 3px solid var(--accent); }
-    .card.green-border { border-left: 3px solid var(--green); }
-    .card.yellow-border { border-left: 3px solid var(--yellow); }
-    .card.red-border { border-left: 3px solid var(--red); }
+    .card:hover {
+      border-color: var(--glass-border-hover);
+    }
+    .card.accent-border { border-left: 2px solid var(--accent); }
+    .card.green-border { border-left: 2px solid var(--green); }
+    .card.yellow-border { border-left: 2px solid var(--yellow); }
+    .card.red-border { border-left: 2px solid var(--red); }
+    .card.cyan-border { border-left: 2px solid var(--cyan); }
+    .card.glow {
+      box-shadow: 0 0 40px rgba(99,102,241,0.06), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
 
     /* ── Stat block ── */
-    .stat { text-align: center; padding: 1rem; }
-    .stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text); }
-    .stat-value.accent { color: var(--accent); }
+    .stat { text-align: center; padding: 0.75rem 1rem; }
+    .stat-value {
+      font-size: 2.2rem; font-weight: 900; color: var(--text);
+      letter-spacing: -0.03em; line-height: 1;
+    }
+    .stat-value.accent { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .stat-value.green { color: var(--green); }
-    .stat-label { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .stat-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.62rem; color: var(--text-dim); margin-top: 0.35rem;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
 
     /* ── Table ── */
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin: 0.5rem 0; }
-    th { text-align: left; padding: 0.5rem 0.6rem; color: var(--text-dim); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--glass-border); }
-    td { padding: 0.45rem 0.6rem; border-bottom: 1px solid rgba(148,163,184,0.06); color: var(--text-secondary); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin: 0.4rem 0; }
+    th {
+      text-align: left; padding: 0.5rem 0.6rem;
+      color: var(--text-dim); font-weight: 600; font-size: 0.65rem;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      border-bottom: 1px solid var(--glass-border);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    td {
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      color: var(--text-secondary);
+    }
     td strong { color: var(--text); }
     tr:last-child td { border-bottom: none; }
     .check { color: var(--green); font-weight: 700; }
     .cross { color: var(--text-dim); }
 
-    /* ── Quote block ── */
+    /* ── Quote ── */
     .quote {
-      border-left: 3px solid var(--accent);
+      border-left: 2px solid var(--accent);
       padding: 0.75rem 1rem;
       background: var(--accent-glow);
       border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-      margin: 0.75rem 0;
-      font-size: 0.88rem;
-      font-style: italic;
+      margin: 0.6rem 0;
+      font-size: 0.82rem;
       color: var(--text-secondary);
     }
-    .quote strong { color: var(--text); font-style: normal; }
+    .quote strong { color: var(--text); }
 
     /* ── Badge ── */
     .badge {
-      display: inline-block; font-size: 0.68rem; font-weight: 600;
-      padding: 0.2rem 0.6rem; border-radius: 20px;
-      text-transform: uppercase; letter-spacing: 0.06em;
+      display: inline-block; font-size: 0.6rem; font-weight: 700;
+      padding: 0.18rem 0.55rem; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      font-family: 'JetBrains Mono', monospace;
     }
-    .badge.blue { background: var(--accent-glow); color: var(--accent); }
+    .badge.blue { background: var(--accent-glow); color: var(--accent-light); }
     .badge.green { background: var(--green-dim); color: var(--green); }
     .badge.yellow { background: var(--yellow-dim); color: var(--yellow); }
+    .badge.red { background: var(--red-dim); color: var(--red); }
+    .badge.cyan { background: var(--cyan-dim); color: var(--cyan); }
 
-    /* ── Flywheel diagram ── */
+    /* ── Flywheel ── */
     .flywheel {
-      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-      padding: 1rem; flex-wrap: wrap;
+      display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+      padding: 0.75rem; flex-wrap: wrap;
     }
     .flywheel .step {
-      background: var(--accent-glow); border: 1px solid rgba(59,130,246,0.2);
-      padding: 0.4rem 0.8rem; border-radius: 20px;
-      font-size: 0.78rem; font-weight: 500; color: var(--accent);
+      background: var(--accent-glow); border: 1px solid rgba(99,102,241,0.15);
+      padding: 0.35rem 0.7rem; border-radius: 20px;
+      font-size: 0.72rem; font-weight: 500; color: var(--accent-light);
     }
-    .flywheel .arrow { color: var(--text-dim); font-size: 1.1rem; }
+    .flywheel .arrow { color: var(--text-dim); font-size: 0.9rem; }
 
-    /* ── Bottom nav ── */
+    /* ── Navigation ── */
     .nav-bar {
       position: fixed; bottom: 0; left: 0; right: 0;
-      display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+      display: flex; align-items: center; justify-content: center; gap: 0.6rem;
       padding: 0.75rem 1.5rem;
-      background: rgba(2,6,23,0.85); backdrop-filter: blur(12px);
+      background: rgba(7,8,13,0.9); backdrop-filter: blur(16px);
       border-top: 1px solid var(--glass-border);
       z-index: 100;
     }
     .nav-dot {
-      width: 10px; height: 10px; border-radius: 50%;
+      width: 8px; height: 8px; border-radius: 50%;
       background: var(--text-dim); border: none; cursor: pointer;
-      transition: all 0.25s;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
     }
-    .nav-dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); transform: scale(1.3); }
+    .nav-dot.active {
+      background: var(--accent-light);
+      box-shadow: 0 0 12px rgba(99,102,241,0.5);
+      transform: scale(1.4);
+    }
     .nav-dot:hover { background: var(--text-secondary); }
-    .nav-label {
-      position: fixed; bottom: 3rem; left: 50%; transform: translateX(-50%);
-      font-size: 0.7rem; color: var(--text-dim); text-align: center;
-    }
     .nav-arrows {
-      position: fixed; bottom: 0.75rem; right: 1.5rem;
-      display: flex; gap: 0.5rem; z-index: 101;
+      position: fixed; bottom: 0.6rem; right: 1.5rem;
+      display: flex; gap: 0.4rem; z-index: 101;
     }
     .nav-arrows button {
-      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--glass-border);
-      background: var(--glass); color: var(--text); cursor: pointer;
+      width: 34px; height: 34px; border-radius: 10px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass); color: var(--text-secondary); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1rem; transition: all 0.2s;
+      font-size: 0.85rem; transition: all 0.25s;
+      backdrop-filter: blur(8px);
     }
-    .nav-arrows button:hover { background: var(--accent-glow); border-color: var(--accent); }
+    .nav-arrows button:hover {
+      background: var(--accent-glow); border-color: rgba(99,102,241,0.3);
+      color: var(--text);
+    }
     .slide-counter {
-      position: fixed; bottom: 0.9rem; left: 1.5rem;
-      font-size: 0.72rem; color: var(--text-dim); z-index: 101;
+      position: fixed; bottom: 0.8rem; left: 1.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem; color: var(--text-dim); z-index: 101;
+      letter-spacing: 0.05em;
     }
 
-    /* ── Spacing ── */
-    .mt { margin-top: 1rem; }
-    .mt-sm { margin-top: 0.5rem; }
-    .mb { margin-bottom: 1rem; }
-    .gap-sm { gap: 0.75rem; }
-    ul { padding-left: 1.2rem; }
-    li { margin-bottom: 0.3rem; }
+    /* ── Helpers ── */
+    .mt { margin-top: 0.85rem; }
+    .mt-sm { margin-top: 0.4rem; }
+    .mb { margin-bottom: 0.85rem; }
+    ul { padding-left: 1.1rem; }
+    li { margin-bottom: 0.25rem; }
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.15em; color: var(--text-dim); margin-bottom: 0.6rem;
+      padding-bottom: 0.35rem; border-bottom: 1px solid var(--glass-border);
+    }
 
-    /* ── Hook special ── */
+    /* ── Hook slide ── */
     .hook-center {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       text-align: center; height: 100%;
     }
-    .hook-center h1 { font-size: clamp(2.5rem, 6vw, 4rem); margin-bottom: 0.75rem; }
-    .hook-stat { font-size: clamp(3rem, 8vw, 5.5rem); font-weight: 800; color: var(--accent); line-height: 1; margin: 0.5rem 0; }
-    .hook-sub { font-size: clamp(0.85rem, 2vw, 1.1rem); color: var(--text-secondary); max-width: 600px; margin: 0 auto; }
-    .hook-footer { margin-top: 2rem; font-size: 0.8rem; color: var(--text-dim); }
+    .hook-center h1 {
+      font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+      margin-bottom: 0.6rem;
+    }
+    .hook-stat {
+      font-size: clamp(3.5rem, 9vw, 6rem);
+      font-weight: 900; line-height: 1; margin: 0.3rem 0;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 40px rgba(99,102,241,0.3));
+    }
+    .hook-sub {
+      font-size: clamp(0.82rem, 1.8vw, 1.05rem);
+      color: var(--text-secondary); max-width: 620px; margin: 0 auto;
+      line-height: 1.65;
+    }
+    .hook-footer {
+      margin-top: 1.5rem; font-size: 0.72rem; color: var(--text-dim);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
     .hook-footer strong { color: var(--text-secondary); }
 
-    .section-label {
-      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 0.75rem;
-      padding-bottom: 0.4rem; border-bottom: 1px solid var(--glass-border);
+    /* ── Metric row ── */
+    .metric-row {
+      display: flex; gap: 1rem; justify-content: center;
+      flex-wrap: wrap; margin: 1.25rem 0;
+    }
+    .metric-pill {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 0.8rem 1.5rem;
+      text-align: center;
+      backdrop-filter: blur(8px);
+      min-width: 130px;
+    }
+    .metric-pill .val {
+      font-size: 1.6rem; font-weight: 900; letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .metric-pill .lbl {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.58rem; color: var(--text-dim); margin-top: 0.3rem;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+
+    /* ── Progress bar ── */
+    .progress-track {
+      width: 100%; height: 4px; background: rgba(255,255,255,0.04);
+      border-radius: 2px; overflow: hidden; margin: 0.3rem 0;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 2px;
+      background: var(--accent-gradient);
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ── Animated glow ring ── */
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(99,102,241,0.1); }
+      50% { box-shadow: 0 0 40px rgba(99,102,241,0.2); }
+    }
+    .pulse { animation: pulse-glow 3s ease-in-out infinite; }
+
+    /* ── Kill number ── */
+    .kill-number {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .kill-number.red { color: var(--red); }
+    .kill-number.green { color: var(--green); }
+    .kill-number.accent {
+      background: var(--accent-gradient);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
   </style>
 </head>
@@ -215,346 +384,401 @@
 
 <div class="deck" id="deck">
 
-  <!-- ════════ SLIDE 1: HOOK ════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════
+       SLIDE 1: HOOK — LA OPORTUNIDAD
+       ═══════════════════════════════════════════════════════════════════ -->
   <div class="slide active" data-slide="0">
     <div class="hook-center">
-      <div class="slide-num">Slide 1 / 5 &mdash; El Hook</div>
-      <h1><span class="gradient">AdPilot</span></h1>
-      <p class="tagline" style="text-align:center;">Google Ads sin saber Google Ads.<br>Habl&aacute;, ejecut&aacute;, optimiz&aacute;.</p>
-      <div class="hook-stat">62%</div>
-      <p class="hook-sub">de las PyMEs quiere abandonar Google Ads.<br>No porque no funcione &mdash; porque no tienen tiempo, plata ni expertise para manejarlo.</p>
-      <div class="quote" style="max-width:620px; margin:1.5rem auto 0; text-align:left;">
-        <strong>MVP funcional completo</strong> &mdash; 27 m&oacute;dulos, integraci&oacute;n directa con Google Ads, IA conversacional &mdash; construido con <strong>USD 0</strong> de inversi&oacute;n, corriendo en hardware de <strong>USD 80</strong>.<br>
-        Si funciona en una Raspberry Pi, imaginate en un servidor real.
+      <div class="slide-num">AdPilot &mdash; Inversi&oacute;n</div>
+      <div class="hook-stat">US$25B</div>
+      <h1>en ads digitales LATAM.<br><span class="gradient">Cero herramientas en espa&ntilde;ol.</span></h1>
+      <p class="hook-sub">30 millones de PyMEs en Latinoam&eacute;rica. El 73% que intenta Google Ads fracasa. No existe UNA herramienta de IA en espa&ntilde;ol que cree, ejecute y optimice campa&ntilde;as. <strong>AdPilot es esa herramienta.</strong></p>
+
+      <div class="metric-row">
+        <div class="metric-pill pulse">
+          <div class="val accent">85%</div>
+          <div class="lbl">Margen bruto</div>
+        </div>
+        <div class="metric-pill">
+          <div class="val" style="color:var(--green)">13</div>
+          <div class="lbl">Clientes a breakeven</div>
+        </div>
+        <div class="metric-pill">
+          <div class="val" style="color:var(--cyan)">6&ndash;9x</div>
+          <div class="lbl">LTV:CAC</div>
+        </div>
+        <div class="metric-pill">
+          <div class="val" style="color:var(--yellow)">5 sem</div>
+          <div class="lbl">A producci&oacute;n</div>
+        </div>
       </div>
-      <div class="hook-footer"><strong>Diego Della Cagnoletta</strong> &middot; Solo founder &middot; Full-stack developer</div>
+
+      <div class="quote" style="max-width:640px; margin:0.75rem auto 0; text-align:left;">
+        <strong>MVP funcional con 27 m&oacute;dulos, USD 0 de inversi&oacute;n.</strong> Google Ads API, IA conversacional, multi-tenant, optimizaci&oacute;n aut&oacute;noma. Corre en hardware de USD 80. El riesgo t&eacute;cnico ya est&aacute; resuelto.
+      </div>
+      <div class="hook-footer"><strong>Diego Dell'Agostino</strong> &middot; Solo founder &amp; full-stack developer</div>
     </div>
   </div>
 
-  <!-- ════════ SLIDE 2: PROBLEMA + OPORTUNIDAD ════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════
+       SLIDE 2: PROBLEMA + MERCADO
+       ═══════════════════════════════════════════════════════════════════ -->
   <div class="slide" data-slide="1">
-    <div class="slide-num">Slide 2 / 5 &mdash; Problema + Oportunidad</div>
-    <h1>La herramienta de ventas m&aacute;s poderosa. <span class="gradient">Y la m&aacute;s hostil.</span></h1>
+    <div class="slide-num">02 &mdash; Problema &amp; mercado</div>
+    <h1>El 73% fracasa en Google Ads.<br><span class="gradient">El mercado crece 12% anual.</span></h1>
     <div class="cols mt">
       <div>
-        <div class="section-label">El dolor</div>
-        <div class="card accent-border">
-          <strong>Complejidad</strong>
-          <p>200+ configuraciones por campa&ntilde;a. El 56% de las PyMEs tiene menos de 1h/d&iacute;a para TODO el marketing.</p>
+        <div class="section-label">El dolor de las PyMEs</div>
+        <div class="card red-border">
+          <h3>73% de campa&ntilde;as PPC de SMBs fallan</h3>
+          <p>200+ configuraciones por campa&ntilde;a. El 56% de las PyMEs tiene menos de 1 hora/d&iacute;a para todo el marketing. <strong>Resultado: 20&ndash;40% del presupuesto se quema sin retorno.</strong></p>
+          <div class="progress-track mt-sm"><div class="progress-fill" style="width:73%; background: linear-gradient(90deg, var(--red), #F97316);"></div></div>
+          <div style="display:flex; justify-content:space-between; font-size:0.62rem; color:var(--text-dim); font-family:'JetBrains Mono',monospace;">
+            <span>Tasa de fracaso PPC</span><span style="color:var(--red)">73%</span>
+          </div>
         </div>
-        <div class="card accent-border">
-          <strong>Costo de entrada</strong>
-          <p>Agencia: USD 500&ndash;3,000/mes. Google recomienda USD 3,000&ndash;5,000/mes solo en ad spend.</p>
+        <div class="card red-border">
+          <h3>Barrera econ&oacute;mica brutal</h3>
+          <p>Agencia en LATAM: USD 500&ndash;3,000/mes. Optmyzr: USD 249/mes (en ingl&eacute;s). Google recomienda USD 3,000&ndash;5,000/mes de ad spend m&iacute;nimo. <strong>Inaccesible para el 80% de PyMEs.</strong></p>
         </div>
-        <div class="card accent-border">
-          <strong>Caja negra</strong>
-          <p>El 23% dice que su frustraci&oacute;n #1 es no saber qu&eacute; genera resultados.</p>
+        <div class="card red-border">
+          <h3>Incentivos desalineados</h3>
+          <p>Google optimiza para que gastes m&aacute;s. Agencias cobran % del spend. <strong>US$6,100M se desperdician anualmente en ads mal gestionados.</strong> Nadie gana cuando la PyME gasta menos.</p>
         </div>
-        <div class="card accent-border">
-          <strong>Degradaci&oacute;n silenciosa</strong>
-          <p>Sin optimizaci&oacute;n activa, el CPA sube y el ROAS baja. La plata se quema sin aviso.</p>
-        </div>
-        <div class="quote">El 65% de las PyMEs no puede ejecutar marketing digital por falta de tiempo o presupuesto. No es que no quieran &mdash; es que no pueden.</div>
+        <div class="quote"><strong>El 65% de las PyMEs LATAM no puede ejecutar marketing digital.</strong> No es falta de demanda &mdash; es falta de acceso. Eso es la oportunidad.</div>
       </div>
       <div>
-        <div class="section-label">Mercado &mdash; Honesto</div>
-        <div class="card">
+        <div class="section-label">Tama&ntilde;o del mercado</div>
+        <div class="card glow">
           <table>
-            <tr><td><span class="badge blue">TAM</span></td><td>Ad spend digital LATAM 2026</td><td style="text-align:right"><strong>USD 50,100M</strong></td></tr>
-            <tr><td><span class="badge green">SAM</span></td><td>Herramientas PPC para PyMEs LATAM</td><td style="text-align:right"><strong>~USD 450M/a&ntilde;o</strong></td></tr>
-            <tr><td><span class="badge yellow">SOM</span></td><td>Capturable en 18 meses</td><td style="text-align:right"><strong>USD 390K ARR</strong></td></tr>
+            <tr><td><span class="badge blue">TAM</span></td><td>Ad spend digital LATAM 2026</td><td style="text-align:right"><strong>US$50,100M</strong></td></tr>
+            <tr><td><span class="badge green">SAM</span></td><td>Herramientas PPC PyMEs LATAM</td><td style="text-align:right"><strong>~US$450M/a&ntilde;o</strong></td></tr>
+            <tr><td><span class="badge yellow">SOM</span></td><td>Capturable 18 meses</td><td style="text-align:right"><strong>US$390K ARR</strong></td></tr>
           </table>
         </div>
-        <div class="section-label mt">Beachhead</div>
+
+        <div class="section-label mt">Beachhead: e-commerce Argentina</div>
         <div class="card green-border">
-          <strong>E-commerce chicos de Argentina</strong>
-          <p>Venden por Instagram/ML, quieren su primer Google Ads. ~150K negocios activos. Ya gastan USD 200-500/mes en Meta.</p>
-          <p class="mt-sm"><strong>Dominar AR &rarr; Chile &rarr; M&eacute;xico &rarr; Colombia</strong></p>
+          <p><strong>~150K negocios</strong> que venden por Instagram/MercadoLibre. Ya gastan USD 200&ndash;500/mes en Meta Ads. Quieren Google Ads pero no saben c&oacute;mo.</p>
+          <p class="mt-sm"><strong>E-commerce AR creci&oacute; 58.2% en 2025</strong> &mdash; el m&aacute;s r&aacute;pido de la regi&oacute;n.</p>
+          <p class="mt-sm" style="font-size:0.72rem; color:var(--text-dim);">Expansi&oacute;n: AR &rarr; Chile &rarr; M&eacute;xico &rarr; Colombia (84.5% de ventas regionales)</p>
         </div>
-        <div class="section-label mt">Por qu&eacute; ahora</div>
+
+        <div class="section-label mt">Timing &mdash; 4 vientos a favor</div>
         <div class="card">
           <ul>
-            <li><strong>LLMs baratos:</strong> GPT-4o-mini = USD 0.15/1K tokens (100x m&aacute;s barato que hace 2 a&ntilde;os)</li>
-            <li><strong>Google Ads API v16:</strong> Crear campa&ntilde;as programáticamente desde 2024</li>
-            <li><strong>LATAM sub-atendido:</strong> 0 herramientas conversacionales en espa&ntilde;ol</li>
-            <li><strong>Boom e-commerce:</strong> +25% en 2025. Cada nuevo negocio es un cliente</li>
+            <li><strong>LLMs bajaron 100x</strong> en 2 a&ntilde;os &mdash; unit economics viables por primera vez</li>
+            <li><strong>Google Ads API v16</strong> &mdash; creaci&oacute;n program&aacute;tica end-to-end desde 2024</li>
+            <li><strong>0 competidores en espa&ntilde;ol</strong> &mdash; mercado completamente vac&iacute;o</li>
+            <li><strong>E-commerce LATAM +12.2% YoY</strong> &mdash; la regi&oacute;n de mayor crecimiento mundial</li>
           </ul>
+        </div>
+
+        <div class="card cyan-border" style="margin-top:0.4rem;">
+          <p style="font-size:0.75rem;"><strong style="color:var(--cyan)">VC LATAM en recuperaci&oacute;n:</strong> US$4.1B en 2025 (+13.8%), exits de US$4.9B (+172% YoY). AI es el thesis dominante para 2026.</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ════════ SLIDE 3: SOLUCIÓN ════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════
+       SLIDE 3: PRODUCTO + MOAT
+       ═══════════════════════════════════════════════════════════════════ -->
   <div class="slide" data-slide="2">
-    <div class="slide-num">Slide 3 / 5 &mdash; Soluci&oacute;n + Diferenciadores</div>
-    <h1><span class="gradient">Copiloto de IA</span> que ejecuta, no recomienda</h1>
-    <p class="tagline">Dec&iacute; qu&eacute; vend&eacute;s, a qui&eacute;n y con cu&aacute;nto. La IA arma keywords, anuncios, bidding, geo, UTMs &mdash; y lo ejecuta directo en Google Ads. Despu&eacute;s optimiza 24/7.</p>
+    <div class="slide-num">03 &mdash; Producto &amp; defensibilidad</div>
+    <h1>El &uacute;nico copiloto que <span class="gradient">ejecuta, no recomienda.</span></h1>
+    <p class="tagline">&ldquo;Quiero vender zapatillas en Buenos Aires con $500/d&iacute;a&rdquo; &rarr; keywords, anuncios, geo, UTMs, bidding &rarr; publicado en Google Ads. Despu&eacute;s optimiza 24/7.</p>
 
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;" class="mt">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:0.6rem;" class="mt">
       <div class="card accent-border">
-        <h3>Conversacional en espa&ntilde;ol</h3>
-        <p>Cero curva de aprendizaje. &ldquo;Quiero vender zapatillas en Buenos Aires con 500 pesos por d&iacute;a&rdquo; &rarr; campa&ntilde;a lista.</p>
+        <h3 style="color:var(--accent-light)">Chat en espa&ntilde;ol</h3>
+        <p>Cero curva de aprendizaje. Flujo guiado: intake &rarr; clarificaci&oacute;n &rarr; revisi&oacute;n &rarr; ejecuci&oacute;n. <strong>Accesible para el 100% del target.</strong></p>
       </div>
       <div class="card green-border">
-        <h3>Ejecuta, no recomienda</h3>
-        <p>No genera PDFs. CREA la campa&ntilde;a en Google Ads: budget, keywords, ads, geo, UTMs, audiencias &mdash; todo con un click.</p>
+        <h3 style="color:var(--green)">Ejecuci&oacute;n directa</h3>
+        <p>No genera PDFs. <strong>Crea y publica la campa&ntilde;a</strong> en Google Ads en minutos. Fricci&oacute;n cero entre intenci&oacute;n y acci&oacute;n.</p>
       </div>
       <div class="card yellow-border">
-        <h3>Optimizaci&oacute;n aut&oacute;noma</h3>
-        <p>&ldquo;Si CPA&gt;$10, pausar keyword&rdquo;. Guardrails anti-quema: pausa autom&aacute;tica si el gasto supera umbral sin resultados.</p>
+        <h3 style="color:var(--yellow)">Guardrails anti-quema</h3>
+        <p>Pausa por CPA, alertas de spend, umbrales configurables. <strong>El cliente siente que alguien cuida su plata.</strong></p>
       </div>
       <div class="card red-border">
-        <h3>Abogado del anunciante</h3>
-        <p>Google quiere que gastes M&Aacute;S. AdPilot quiere que gastes MEJOR. Te dice &ldquo;paus&aacute;, est&aacute;s tirando plata&rdquo;.</p>
+        <h3 style="color:var(--red)">Alineado con el cliente</h3>
+        <p>SaaS de suscripci&oacute;n fija. <strong>El &uacute;nico incentivado a que gastes MENOS y MEJOR.</strong></p>
       </div>
     </div>
 
     <div class="cols mt">
       <div>
-        <div class="section-label">Comparativa</div>
-        <div class="card" style="overflow-x:auto;">
+        <div class="section-label">Landscape competitivo</div>
+        <div class="card glow" style="overflow-x:auto;">
           <table>
-            <thead><tr><th>Feature</th><th>AdPilot</th><th>Optmyzr $208</th><th>WordStream $49</th><th>Agencia $500+</th></tr></thead>
+            <thead>
+              <tr>
+                <th></th>
+                <th style="color:var(--accent-light)">AdPilot $29</th>
+                <th>Optmyzr $249</th>
+                <th>WordStream $49</th>
+                <th>Agencia $500+</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td>Espa&ntilde;ol nativo</td><td class="check">Si</td><td class="cross">No</td><td class="cross">No</td><td>Depende</td></tr>
-              <tr><td>Creaci&oacute;n por chat</td><td class="check">Si</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td></tr>
-              <tr><td>Ejecuci&oacute;n directa</td><td class="check">Si</td><td class="check">Si</td><td class="cross">Solo recs</td><td class="check">Si</td></tr>
-              <tr><td>Guardrails anti-quema</td><td class="check">Si</td><td class="cross">No</td><td class="cross">No</td><td>Depende</td></tr>
-              <tr><td>An&aacute;lisis con IA</td><td class="check">Si</td><td class="cross">No</td><td class="cross">No</td><td>Manual</td></tr>
-              <tr><td>Multi-tenant</td><td class="check">Si</td><td class="check">Si</td><td class="cross">No</td><td>N/A</td></tr>
-              <tr><td><strong>Precio</strong></td><td><strong>~USD 29</strong></td><td>USD 208</td><td>USD 49</td><td>USD 500+</td></tr>
-              <tr><td><strong>Requiere expertise</strong></td><td><strong>No</strong></td><td>Si</td><td>Si</td><td>Si</td></tr>
+              <tr><td>Espa&ntilde;ol nativo</td><td class="check">&check;</td><td style="color:var(--yellow)">UI only</td><td class="cross">&times;</td><td>Depende</td></tr>
+              <tr><td>Creaci&oacute;n por chat</td><td class="check">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td></tr>
+              <tr><td>Ejecuci&oacute;n end-to-end</td><td class="check">&check;</td><td class="check">&check;</td><td class="cross">Solo recs</td><td class="check">&check;</td></tr>
+              <tr><td>Protecci&oacute;n anti-quema</td><td class="check">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td>Depende</td></tr>
+              <tr><td>Sin expertise requerido</td><td class="check">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td></tr>
+              <tr><td>Precio accesible PyME</td><td class="check">&check;</td><td class="cross">&times;</td><td class="check">&check;</td><td class="cross">&times;</td></tr>
             </tbody>
           </table>
         </div>
+        <p style="font-size:0.7rem; color:var(--text-dim); margin-top:0.35rem;">Optmyzr: tiene UI en espa&ntilde;ol pero arranca en $249/mes, dise&ntilde;ado para agencias. WordStream: perdi&oacute; 38% de clientes desde 2024. Madgicx/Birch: foco en Meta, no Google Ads.</p>
       </div>
       <div>
-        <div class="section-label">El Moat: Data Flywheel</div>
-        <div class="card">
+        <div class="section-label">Moat: Data Flywheel</div>
+        <div class="card glow">
           <div class="flywheel">
-            <span class="step">Campa&ntilde;a creada</span>
+            <span class="step">Campa&ntilde;a</span>
             <span class="arrow">&rarr;</span>
-            <span class="step">M&eacute;tricas reales</span>
+            <span class="step">M&eacute;tricas</span>
             <span class="arrow">&rarr;</span>
-            <span class="step">Knowledge RAG</span>
+            <span class="step">RAG vectorial</span>
             <span class="arrow">&rarr;</span>
             <span class="step">IA mejora</span>
             <span class="arrow">&circlearrowleft;</span>
           </div>
-          <p class="mt-sm">A las <strong>1,000 campa&ntilde;as</strong>, tenemos el dataset de &ldquo;qu&eacute; funciona en Google Ads para PyMEs LATAM&rdquo; que nadie m&aacute;s tiene. <strong>El c&oacute;digo se copia. Los datos, no.</strong></p>
+          <p class="mt-sm" style="font-size:0.78rem;">A las <strong>1,000 campa&ntilde;as</strong>: dataset propietario de &ldquo;qu&eacute; funciona en Google Ads para PyMEs LATAM&rdquo;. <strong>No existe en ning&uacute;n otro lado.</strong></p>
         </div>
-        <div class="section-label mt">Expansi&oacute;n</div>
+        <div class="section-label mt">Expansi&oacute;n de plataforma</div>
         <div class="card">
           <table>
-            <tr><td><span class="badge green">Ahora</span></td><td>Google Ads (Search, Display, PMax)</td></tr>
-            <tr><td><span class="badge blue">Mes 9</span></td><td>Meta Ads (Facebook + Instagram)</td></tr>
-            <tr><td><span class="badge yellow">Mes 15</span></td><td>TikTok Ads + ML Ads</td></tr>
+            <tr><td><span class="badge green">Hoy</span></td><td>Google Ads (Search, Display, PMax)</td></tr>
+            <tr><td><span class="badge blue">Mes 9</span></td><td>+ Meta Ads (Facebook + Instagram)</td></tr>
+            <tr><td><span class="badge yellow">Mes 15</span></td><td>+ TikTok Ads + MercadoLibre Ads</td></tr>
           </table>
-          <p class="mt-sm" style="font-size:0.78rem;">El moat es la capa de IA, no el canal.</p>
+          <p class="mt-sm" style="font-size:0.72rem; color:var(--text-dim);">Cada canal nuevo = upsell natural. La capa de IA se reutiliza; costo marginal bajo.</p>
+        </div>
+        <div class="card accent-border mt-sm">
+          <p style="font-size:0.78rem;"><strong style="color:var(--accent-light)">&iquest;Por qu&eacute; no se clona?</strong> El c&oacute;digo es replicable. Los datos de 1,000+ campa&ntilde;as LATAM no. 1 agencia = 10&ndash;50 cuentas = switching cost alto + flywheel se acelera.</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ════════ SLIDE 4: NÚMEROS ════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════════
+       SLIDE 4: UNIT ECONOMICS
+       ═══════════════════════════════════════════════════════════════════ -->
   <div class="slide" data-slide="3">
-    <div class="slide-num">Slide 4 / 5 &mdash; Los N&uacute;meros</div>
-    <h1>Unit economics <span class="gradient">stress-tested</span></h1>
+    <div class="slide-num">04 &mdash; Unit economics</div>
+    <h1><span class="gradient">85% margen.</span> Payback en 2 meses. <span class="gradient">Breakeven con 13 clientes.</span></h1>
     <div class="cols mt">
       <div>
         <div class="section-label">Pricing</div>
-        <div class="card">
+        <div class="card glow">
           <table>
             <thead><tr><th>Plan</th><th>USD/mes</th><th>Target</th></tr></thead>
             <tbody>
-              <tr><td><span class="badge blue">Free</span></td><td>0</td><td>Prueba sin riesgo</td></tr>
-              <tr><td><strong>Starter</strong></td><td><strong>29</strong></td><td>Emprendedores</td></tr>
-              <tr><td><strong>Growth</strong></td><td><strong>79</strong></td><td>PyMEs en crecimiento</td></tr>
-              <tr><td><strong>Agency</strong></td><td><strong>199</strong></td><td>Agencias digitales</td></tr>
+              <tr><td><span class="badge cyan">Free</span></td><td>0</td><td>Conversi&oacute;n funnel</td></tr>
+              <tr><td><strong>Starter</strong></td><td><strong>29</strong></td><td>Emprendedores &mdash; 1 cuenta</td></tr>
+              <tr><td><strong>Growth</strong></td><td><strong>79</strong></td><td>PyMEs &mdash; hasta 5 cuentas</td></tr>
+              <tr><td><strong>Agency</strong></td><td><strong>199</strong></td><td>Agencias &mdash; ilimitado + white-label</td></tr>
             </tbody>
           </table>
+          <p style="font-size:0.65rem; color:var(--text-dim); margin-top:0.35rem;">vs Agencia LATAM: USD 500&ndash;3,000/mes. vs Optmyzr: USD 249/mes m&iacute;nimo.</p>
         </div>
 
-        <div class="section-label mt">ROI para el cliente</div>
+        <div class="section-label mt">ROI del cliente</div>
         <div class="card green-border">
-          <p>USD 300 ad spend &rarr; 15-30 leads &rarr; 2-3 ventas (ticket USD 100-200)</p>
-          <p class="mt-sm"><strong>Revenue: USD 200&ndash;600</strong> vs costo total USD 329</p>
-          <p class="mt-sm" style="font-size:0.78rem;">ROI positivo desde el mes 1. Mejora con optimizaci&oacute;n.</p>
+          <p><strong>Input:</strong> USD 300 ad spend + USD 29 AdPilot = <strong>USD 329/mes</strong></p>
+          <p class="mt-sm"><strong>Output:</strong> ROAS optimizado 5&ndash;8x (vs 2x promedio sin gesti&oacute;n)</p>
+          <p class="mt-sm" style="font-size:0.78rem; color:var(--green); font-weight:600;">ROI positivo mes 1. A medida que la IA optimiza, el ROAS sube y el churn baja.</p>
         </div>
 
-        <div class="section-label mt">Unit Economics</div>
+        <div class="section-label mt">M&eacute;tricas clave</div>
         <div class="card">
           <table>
-            <tr><td>ARPU</td><td style="text-align:right"><strong>~USD 65/mes</strong></td></tr>
-            <tr><td>Costo LLM/usuario</td><td style="text-align:right">USD 3&ndash;8</td></tr>
-            <tr><td>Margen bruto</td><td style="text-align:right"><strong>~85%</strong> <span style="font-size:0.7rem; color:var(--green)">&gt;70% es excelente</span></td></tr>
-            <tr><td>CAC</td><td style="text-align:right">USD 100&ndash;150</td></tr>
-            <tr><td>Churn mensual</td><td style="text-align:right">7&ndash;8%</td></tr>
-            <tr><td>LTV</td><td style="text-align:right"><strong>~USD 930</strong></td></tr>
-            <tr><td>LTV:CAC</td><td style="text-align:right"><strong>6:1 &ndash; 9:1</strong> <span style="font-size:0.7rem; color:var(--green)">&gt;3:1 es saludable</span></td></tr>
+            <tr><td>ARPU (blended)</td><td style="text-align:right"><strong>~USD 65/mes</strong></td></tr>
+            <tr><td>COGS (LLM + infra)</td><td style="text-align:right">USD 3&ndash;8/user</td></tr>
+            <tr><td>Margen bruto</td><td style="text-align:right"><strong style="color:var(--green)">~85%</strong></td></tr>
+            <tr><td>CAC estimado</td><td style="text-align:right">USD 100&ndash;150</td></tr>
+            <tr><td>LTV (14 meses avg)</td><td style="text-align:right"><strong>~USD 930</strong></td></tr>
+            <tr><td>LTV:CAC</td><td style="text-align:right"><strong style="color:var(--accent-light)">6:1 &ndash; 9:1</strong></td></tr>
             <tr><td>Payback</td><td style="text-align:right"><strong>~2 meses</strong></td></tr>
           </table>
+          <p style="font-size:0.62rem; color:var(--text-dim); margin-top:0.3rem; font-family:'JetBrains Mono',monospace;">Benchmark SaaS SMB: LTV:CAC 3:1 = saludable. Estamos en 2&ndash;3x ese benchmark.</p>
         </div>
       </div>
 
       <div>
-        <div class="section-label">Proyecciones</div>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
-          <div class="card" style="text-align:center;">
-            <div class="stat-label">Mes 4&ndash;6</div>
-            <div class="stat-value" style="font-size:1.4rem;">30</div>
+        <div class="section-label">Proyecciones conservadoras</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; margin-bottom:0.6rem;">
+          <div class="card" style="text-align:center; padding:0.8rem;">
+            <div class="stat-label">Mes 6</div>
+            <div class="kill-number accent">30</div>
             <div class="stat-label">clientes</div>
-            <div style="font-size:0.85rem; color:var(--accent); font-weight:600; margin-top:0.3rem;">USD 1,950 MRR</div>
+            <div style="font-size:0.78rem; color:var(--accent-light); font-weight:700; margin-top:0.2rem;">$1,950</div>
+            <div class="stat-label">MRR</div>
           </div>
-          <div class="card" style="text-align:center;">
-            <div class="stat-label">Mes 9&ndash;12</div>
-            <div class="stat-value" style="font-size:1.4rem;">150</div>
+          <div class="card" style="text-align:center; padding:0.8rem;">
+            <div class="stat-label">Mes 12</div>
+            <div class="kill-number accent">150</div>
             <div class="stat-label">clientes</div>
-            <div style="font-size:0.85rem; color:var(--accent); font-weight:600; margin-top:0.3rem;">USD 9,750 MRR</div>
+            <div style="font-size:0.78rem; color:var(--accent-light); font-weight:700; margin-top:0.2rem;">$9,750</div>
+            <div class="stat-label">MRR</div>
           </div>
-          <div class="card" style="text-align:center;">
+          <div class="card" style="text-align:center; padding:0.8rem;">
             <div class="stat-label">Mes 18</div>
-            <div class="stat-value" style="font-size:1.4rem;">500</div>
+            <div class="kill-number green">500</div>
             <div class="stat-label">clientes</div>
-            <div style="font-size:0.85rem; color:var(--green); font-weight:600; margin-top:0.3rem;">USD 32,500 MRR</div>
+            <div style="font-size:0.78rem; color:var(--green); font-weight:700; margin-top:0.2rem;">$390K</div>
+            <div class="stat-label">ARR</div>
           </div>
         </div>
 
-        <div class="card" style="text-align:center; padding:1rem;">
-          <div style="font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em;">Breakeven</div>
-          <div style="font-size:2.2rem; font-weight:800; color:var(--green);">13 clientes</div>
-          <div style="font-size:0.82rem; color:var(--text-secondary);">~USD 845/mes &middot; Timeline: Mes 2&ndash;3</div>
+        <div class="card pulse" style="text-align:center; padding:1rem;">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.15em;">Breakeven</div>
+          <div class="kill-number green" style="margin:0.2rem 0;">13</div>
+          <div style="font-size:0.78rem; color:var(--text-secondary);">clientes &middot; USD 845/mes &middot; <strong>Mes 2&ndash;3</strong></div>
         </div>
 
-        <div class="section-label mt">Supuestos stress-tested</div>
+        <div class="section-label mt">Supuestos (stress-tested)</div>
         <div class="card">
           <ul>
-            <li>Mix: 60% Starter, 30% Growth, 10% Agency</li>
-            <li>Churn: 10% &rarr; 7% &rarr; 5% (mejora con retenci&oacute;n)</li>
-            <li>Crecimiento: 12&ndash;15% MoM org&aacute;nico</li>
-            <li><strong>Palanca:</strong> 1 agencia = 10-50 cuentas</li>
+            <li>Mix: 60% Starter / 30% Growth / 10% Agency</li>
+            <li>Churn: 10% &rarr; 7% &rarr; 5% (mejora con data flywheel)</li>
+            <li>Crecimiento: 12&ndash;15% MoM org&aacute;nico, sin paid acquisition</li>
+            <li><strong>Upside no modelado:</strong> 1 agencia = 10&ndash;50 cuentas instant&aacute;neas</li>
           </ul>
         </div>
 
-        <div class="section-label mt">Equipo (atado a revenue)</div>
+        <div class="section-label mt">Hiring (atado a revenue, cero burn)</div>
         <div class="card">
           <table>
-            <tr><td>50 clientes</td><td>Community manager PT</td></tr>
-            <tr><td>150 clientes</td><td>Developer PT</td></tr>
-            <tr><td>300 clientes</td><td>Primer hire FT</td></tr>
+            <tr><td><span class="badge blue">50 clientes</span></td><td>Community manager PT</td></tr>
+            <tr><td><span class="badge green">150 clientes</span></td><td>Developer PT</td></tr>
+            <tr><td><span class="badge yellow">300 clientes</span></td><td>Primer hire FT</td></tr>
           </table>
+          <p style="font-size:0.65rem; color:var(--text-dim); margin-top:0.3rem;">No se contrata hasta que el revenue lo sostenga. Capital eficiente desde d&iacute;a 1.</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ════════ SLIDE 5: ASK ════════ -->
-  <div class="slide" data-slide="4">
-    <div class="slide-num">Slide 5 / 5 &mdash; El Ask</div>
-    <h1>Qu&eacute; necesitamos para <span class="gradient">lanzar</span></h1>
+  <!-- ═══════════════════════════════════════════════════════════════════
+       SLIDE 5: THE ASK
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="slide slide-compact" data-slide="4">
+    <div class="slide-num">05 &mdash; La propuesta</div>
+    <h1>Producto listo. Mercado vac&iacute;o.<br><span class="gradient">USD 50K para capturarlo.</span></h1>
     <div class="cols-3 mt">
-      <!-- Tech -->
       <div>
-        <div class="section-label">Desarrollo</div>
-        <div class="card accent-border">
-          <h3 style="color:var(--accent);">MVP listo &mdash; 27 m&oacute;dulos</h3>
+        <div class="section-label">Ya construido (USD 0 de inversi&oacute;n)</div>
+        <div class="card accent-border glow">
+          <h3 style="color:var(--accent-light)">MVP completo &mdash; 27 m&oacute;dulos</h3>
           <ul>
-            <li>Google Ads API v16 integrada</li>
-            <li>IA conversacional + RAG</li>
-            <li>Multi-tenant + AES-256</li>
-            <li>Corre en hardware de USD 80</li>
+            <li>Google Ads API v16 end-to-end</li>
+            <li>IA conversacional + RAG vectorial</li>
+            <li>Multi-tenant + cifrado AES-256</li>
+            <li>Dashboard, m&eacute;tricas, optimizaci&oacute;n</li>
+            <li>Motor de reglas con guardrails</li>
           </ul>
+          <p class="mt-sm" style="font-size:0.7rem; color:var(--text-dim);">Hardware de USD 80. Auditable ahora mismo.</p>
         </div>
         <div class="card">
-          <h3>Para producci&oacute;n (5 semanas)</h3>
+          <h3>Gap a producci&oacute;n: 5 semanas</h3>
           <ul>
             <li>OAuth2 self-service (2 sem)</li>
-            <li>Deploy VPS + dominio (1 sem)</li>
-            <li>Cron m&eacute;tricas (3 d&iacute;as)</li>
+            <li>Deploy cloud + dominio (1 sem)</li>
             <li>Landing + waitlist (1 sem)</li>
             <li>Guardrails anti-quema (1 sem)</li>
-            <li>Email transaccional (1 sem)</li>
           </ul>
         </div>
       </div>
 
-      <!-- Comercial -->
       <div>
-        <div class="section-label">Comercial</div>
+        <div class="section-label">Go-to-market</div>
         <div class="card green-border">
-          <h3 style="color:var(--green);">Canal 1: Agencias boutique</h3>
-          <p>1 agencia = 10-50 cuentas.<br>5 agencias = primer milestone.<br>White-label con plan Agency.</p>
+          <h3 style="color:var(--green)">Equipo comercial dedicado</h3>
+          <p><strong>Head de ventas full-time</strong> (exp. SaaS/agencias).<br>
+          <strong>SDR part-time</strong> para outbound: LinkedIn, cold email, WhatsApp directo a due&ntilde;os de agencia.<br>
+          Meta mes 3: <strong>pipeline de 50+ agencias contactadas.</strong></p>
+        </div>
+        <div class="card accent-border">
+          <h3 style="color:var(--accent-light)">Canal 1: Agencias boutique</h3>
+          <p>1 agencia = 10&ndash;50 cuentas &times; USD 199/mes.<br><strong>10 agencias = USD 2,000+ MRR.</strong><br>Outbound directo + eventos de marketing digital.</p>
         </div>
         <div class="card">
-          <h3>Canal 2: Content</h3>
-          <p>Blog SEO + video demos con cron&oacute;metro real. Comunidades LATAM.</p>
+          <h3>Canal 2: Adquisici&oacute;n pagada</h3>
+          <p>Google Ads propios + Meta Ads segmentados a freelancers y due&ntilde;os de e-commerce LATAM. Retargeting a visitantes de la landing.</p>
         </div>
         <div class="card">
-          <h3>Canal 3: Referidos</h3>
-          <p>20% comisi&oacute;n. Freelancers de marketing como embajadores.</p>
+          <h3>Canal 3: Content + referidos</h3>
+          <p>Video demos profesionales, SEO para &ldquo;Google Ads PyMEs LATAM&rdquo;. Programa de referidos: <strong>20% comisi&oacute;n</strong> por cliente.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label">Use of funds &mdash; USD 50,000</div>
+        <div class="card accent-border glow">
+          <h3 style="color:var(--accent-light)">Equipo &mdash; USD 22,000</h3>
+          <table>
+            <tr><td>Head de ventas (6 meses)</td><td style="text-align:right">USD 15,000</td></tr>
+            <tr><td>SDR outbound (6 meses)</td><td style="text-align:right">USD 4,500</td></tr>
+            <tr><td>Comisiones de venta</td><td style="text-align:right">USD 2,500</td></tr>
+          </table>
+        </div>
+        <div class="card green-border">
+          <h3 style="color:var(--green)">Marketing &mdash; USD 14,000</h3>
+          <table>
+            <tr><td>Paid ads (Google + Meta)</td><td style="text-align:right">USD 8,000</td></tr>
+            <tr><td>Content + video profesional</td><td style="text-align:right">USD 3,500</td></tr>
+            <tr><td>Branding + UX landing</td><td style="text-align:right">USD 2,500</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Producto &mdash; USD 7,000</h3>
+          <table>
+            <tr><td>Cloud infra (12 meses)</td><td style="text-align:right">USD 3,600</td></tr>
+            <tr><td>APIs LLM + Google (12 meses)</td><td style="text-align:right">USD 3,000</td></tr>
+            <tr><td>Dominio, SSL, tooling</td><td style="text-align:right">USD 400</td></tr>
+          </table>
         </div>
         <div class="card yellow-border">
-          <h3 style="color:var(--yellow);">Validaci&oacute;n Semana 0</h3>
-          <p>5 compromisos de beta testers + landing con waitlist + 1 case study real.</p>
-        </div>
-      </div>
-
-      <!-- Inversión -->
-      <div>
-        <div class="section-label">Inversi&oacute;n</div>
-        <div class="card accent-border">
-          <h3>M&iacute;nimo viable</h3>
+          <h3 style="color:var(--yellow)">Operaciones &mdash; USD 7,000</h3>
           <table>
-            <tr><td>VPS 6 meses</td><td style="text-align:right">USD 180</td></tr>
-            <tr><td>Dominio + SSL</td><td style="text-align:right">USD 50</td></tr>
-            <tr><td>APIs (LLM + Ads)</td><td style="text-align:right">USD 500</td></tr>
-            <tr><td>Marketing</td><td style="text-align:right">USD 300</td></tr>
-            <tr style="border-top:1px solid var(--glass-border)"><td><strong>Total</strong></td><td style="text-align:right"><strong>USD 1,030</strong></td></tr>
+            <tr><td>CRM + herramientas de venta</td><td style="text-align:right">USD 1,800</td></tr>
+            <tr><td>Legal (contratos, TOS, privacidad)</td><td style="text-align:right">USD 2,200</td></tr>
+            <tr><td>Buffer / contingencia</td><td style="text-align:right">USD 3,000</td></tr>
           </table>
-        </div>
-        <div class="card">
-          <h3>Acelerado</h3>
-          <table>
-            <tr><td>M&iacute;nimo viable</td><td style="text-align:right">USD 1,030</td></tr>
-            <tr><td>Video + UX + Ads</td><td style="text-align:right">USD 1,700</td></tr>
-            <tr style="border-top:1px solid var(--glass-border)"><td><strong>Total</strong></td><td style="text-align:right"><strong>USD 2,730</strong></td></tr>
-          </table>
-        </div>
-        <div class="card green-border">
-          <h3 style="color:var(--green);">Mitigaci&oacute;n de riesgo</h3>
-          <ul>
-            <li><strong>Money-back</strong> si 0 leads en 30 d&iacute;as</li>
-            <li><strong>Free tier</strong> para probar sin pagar</li>
-            <li><strong>Breakeven</strong> en 13 clientes</li>
-          </ul>
         </div>
       </div>
     </div>
 
-    <!-- Timeline -->
-    <div class="card mt" style="text-align:center; padding:1.25rem;">
-      <div style="display:flex; align-items:center; justify-content:center; gap:1rem; flex-wrap:wrap;">
-        <div><span class="badge blue">Sem 0</span><br><span style="font-size:0.78rem;">5 beta testers</span></div>
-        <span style="color:var(--text-dim);">&rarr;</span>
-        <div><span class="badge blue">Sem 1-2</span><br><span style="font-size:0.78rem;">Deploy + OAuth</span></div>
-        <span style="color:var(--text-dim);">&rarr;</span>
-        <div><span class="badge blue">Sem 3-4</span><br><span style="font-size:0.78rem;">Beta privada</span></div>
-        <span style="color:var(--text-dim);">&rarr;</span>
-        <div><span class="badge green">Sem 5</span><br><span style="font-size:0.78rem;">Case study real</span></div>
-        <span style="color:var(--text-dim);">&rarr;</span>
-        <div><span class="badge green">Mes 2</span><br><span style="font-size:0.78rem;">Apertura p&uacute;blica</span></div>
+    <!-- Timeline + Close -->
+    <div class="card mt glow" style="text-align:center; padding:0.6rem 1rem;">
+      <div style="display:flex; align-items:center; justify-content:center; gap:0.5rem; flex-wrap:wrap;">
+        <div><span class="badge blue">Mes 1</span><br><span style="font-size:0.6rem;">Deploy + equipo</span></div>
+        <span style="color:var(--text-dim); font-size:0.7rem;">&rarr;</span>
+        <div><span class="badge blue">Mes 2</span><br><span style="font-size:0.6rem;">Beta 10 negocios</span></div>
+        <span style="color:var(--text-dim); font-size:0.7rem;">&rarr;</span>
+        <div><span class="badge blue">Mes 3</span><br><span style="font-size:0.6rem;">Case studies + ads</span></div>
+        <span style="color:var(--text-dim); font-size:0.7rem;">&rarr;</span>
+        <div><span class="badge green">Mes 4&ndash;5</span><br><span style="font-size:0.6rem;">Agencias onboard</span></div>
+        <span style="color:var(--text-dim); font-size:0.7rem;">&rarr;</span>
+        <div><span class="badge green">Mes 6</span><br><span style="font-size:0.6rem;">USD 5K+ MRR</span></div>
       </div>
-      <div class="quote mt" style="display:inline-block; max-width:600px; text-align:left;">
-        <strong>La pregunta no es &ldquo;&iquest;funciona?&rdquo;</strong> &mdash; ya funciona.<br>
-        <strong>La pregunta es &ldquo;&iquest;cu&aacute;ntos negocios lo necesitan?&rdquo;</strong> &mdash; y eso se responde con una beta, no con slides.
-      </div>
-      <p class="mt" style="font-size:1rem; color:var(--text); font-weight:600;">Solo falta decir: <span style="color:var(--accent); font-size:1.1rem;">&ldquo;Dale, mandalo.&rdquo;</span></p>
+      <p style="margin-top:0.4rem; font-size:0.95rem; color:var(--text); font-weight:700; letter-spacing:-0.02em;">
+        USD 50K &rarr; equipo + canales + 12 meses de runway &rarr; breakeven mes 6.<br>
+        <span style="font-size:1.15rem; font-weight:900; background:var(--accent-gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
+          El mercado est&aacute; vac&iacute;o. &iquest;Entramos?
+        </span>
+      </p>
     </div>
   </div>
 </div>
 
 <!-- ── Navigation ── -->
-<div class="slide-counter" id="counter">1 / 5</div>
+<div class="slide-counter" id="counter">01 / 05</div>
 <div class="nav-bar">
   <button class="nav-dot active" data-goto="0"></button>
   <button class="nav-dot" data-goto="1"></button>
@@ -575,6 +799,8 @@
   let current = 0;
   const total = slides.length;
 
+  function pad(n) { return String(n).padStart(2, '0'); }
+
   function go(n) {
     if (n < 0 || n >= total || n === current) return;
     slides[current].classList.remove('active');
@@ -582,7 +808,7 @@
     current = n;
     slides[current].classList.add('active');
     dots[current].classList.add('active');
-    counter.textContent = (current + 1) + ' / ' + total;
+    counter.textContent = pad(current + 1) + ' / ' + pad(total);
     slides[current].scrollTop = 0;
   }
 
@@ -597,7 +823,6 @@
     if (e.key === 'End') go(total - 1);
   });
 
-  // Touch swipe
   let tx = 0;
   document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
   document.addEventListener('touchend', e => {
